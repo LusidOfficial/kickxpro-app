@@ -48,17 +48,14 @@ export default function Navbar({ role }: { role?: string } = {}) {
         )}
 
         <Link href="/" className="flex items-center gap-2" style={{ textDecoration: 'none' }}>
-          <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center p-1.5 shadow-inner">
-             {/* Simple Logo SVG */}
-             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="w-full h-full text-emerald-500" style={{ minWidth: 24, minHeight: 24, color: "#10B981" }}>
-               <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-               <path d="M12 8L16 12L12 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-               <path d="M8 12H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-             </svg>
-          </div>
-          <span className="text-xl font-black tracking-tight text-slate-900" style={{ fontFamily: "var(--font-heading)", letterSpacing: "-0.04em" }}>
-            Kick<span className="text-emerald-500">X</span>Pro
-          </span>
+          <Image
+            src="/logo-text.png"
+            alt="KickXPro Logo"
+            width={140}
+            height={32}
+            className="w-auto h-7 md:h-8"
+            priority
+          />
         </Link>
         
         {isCoach && <span className="hidden md:inline-flex px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-widest ml-2 border border-blue-100">Coach Portal</span>}
