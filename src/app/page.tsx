@@ -1,63 +1,121 @@
-import Image from "next/image";
+/* ──────────────────────────────────────────────
+   LANDING PAGE — Portal selector with hero,
+   animated cards, registration CTA, and
+   KickXPro branding. No emoji — all SVG icons.
+   ────────────────────────────────────────────── */
+"use client";
 
-export default function Home() {
+import Link from "next/link";
+import Navbar from "@/components/Navbar";
+import { IconUser, IconClipboard, IconShield, IconChevronRight, IconPlusCircle } from "@/components/Icons";
+
+const PORTALS = [
+  {
+    role: "Player",
+    href: "/player",
+    description: "Your progress, evaluations, and coach feedback",
+    iconComponent: <IconUser size={26} color="#00C853" />,
+    accent: "#00C853",
+  },
+  {
+    role: "Coach",
+    href: "/coach",
+    description: "Run sessions, evaluate players, track development",
+    iconComponent: <IconClipboard size={26} color="#60A5FA" />,
+    accent: "#60A5FA",
+  },
+  {
+    role: "Admin",
+    href: "/admin",
+    description: "Platform management, users, and analytics",
+    iconComponent: <IconShield size={26} color="#A78BFA" />,
+    accent: "#A78BFA",
+  },
+];
+
+export default function LandingPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen flex flex-col noise-overlay">
+      {/* Ambient Glows */}
+      <div className="fixed rounded-full pointer-events-none" style={{ width: 500, height: 500, background: "rgba(0,200,83,0.04)", filter: "blur(150px)", top: "-10%", left: "30%" }} />
+      <div className="fixed rounded-full pointer-events-none" style={{ width: 400, height: 400, background: "rgba(96,165,250,0.03)", filter: "blur(130px)", bottom: "10%", right: "20%" }} />
+
+      <Navbar />
+
+      <main className="flex-1 flex flex-col items-center justify-center px-5 pb-16 relative z-10">
+        {/* Hero */}
+        <div className="text-center mb-12 opacity-0 animate-fade-up" style={{ animationFillMode: "forwards" }}>
+          {/* Logo Mark */}
+          <div className="w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-6 animate-pulse-glow" style={{ background: "rgba(0,200,83,0.08)", border: "1px solid rgba(0,200,83,0.15)" }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00C853" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polygon points="10 8 16 12 10 16 10 8" />
+            </svg>
+          </div>
+
+          <h1 className="text-4xl md:text-5xl font-bold mb-3 tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>
+            Kick<span className="text-gradient">X</span>Pro
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+
+          <p className="text-sm md:text-base max-w-md mx-auto" style={{ color: "var(--color-text-muted)", lineHeight: 1.7 }}>
+            AI-powered sports performance platform for coaches and players.
+            Evaluate, track progress, and unlock potential.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        {/* Portal Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-3xl mb-8">
+          {PORTALS.map((portal, i) => (
+            <Link
+              key={portal.role}
+              href={portal.href}
+              className="card p-6 flex flex-col items-start gap-4 no-underline group opacity-0 animate-fade-up"
+              style={{
+                animationDelay: `${0.2 + i * 0.1}s`,
+                animationFillMode: "forwards",
+              }}
+            >
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110"
+                style={{ background: `${portal.accent}10` }}
+              >
+                {portal.iconComponent}
+              </div>
+              <div>
+                <div className="text-base font-bold mb-1" style={{ fontFamily: "var(--font-heading)" }}>
+                  {portal.role}
+                </div>
+                <div className="text-xs leading-relaxed" style={{ color: "var(--color-text-dim)" }}>
+                  {portal.description}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-xs font-semibold mt-auto" style={{ color: portal.accent }}>
+                Open Portal <IconChevronRight size={14} color={portal.accent} />
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* Register CTA */}
+        <div className="opacity-0 animate-fade-up" style={{ animationDelay: "0.5s", animationFillMode: "forwards" }}>
+          <Link
+            href="/register"
+            className="btn-secondary flex items-center gap-2 no-underline text-sm"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <IconPlusCircle size={16} />
+            New here? Register
+          </Link>
+        </div>
+
+        {/* Platform status + Disclaimer */}
+        <div className="mt-10 text-center opacity-0 animate-fade-up" style={{ animationDelay: "0.6s", animationFillMode: "forwards" }}>
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <span className="w-2 h-2 rounded-full" style={{ background: "#00C853", boxShadow: "0 0 8px #00C853" }} />
+            <span className="text-xs font-medium" style={{ color: "var(--color-text-dim)" }}>Platform Online</span>
+          </div>
+          <p className="text-xs max-w-sm mx-auto" style={{ color: "var(--color-text-dim)", lineHeight: 1.6 }}>
+            Designed for ages 12+. Parental or guardian supervision recommended for users under 16 years.
+          </p>
         </div>
       </main>
     </div>
