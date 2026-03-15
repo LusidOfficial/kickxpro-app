@@ -58,7 +58,7 @@ export default function SessionsHubPage() {
 
   /* ── New Session State ── */
   const [title, setTitle] = useState("");
-  const [sessionType, setSessionType] = useState(SESSION_TYPES[0].key);
+  const [sessionType, setSessionType] = useState<string>(SESSION_TYPES[0].key);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [startTime, setStartTime] = useState("09:00");
   const [duration, setDuration] = useState(60);
