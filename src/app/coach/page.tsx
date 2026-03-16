@@ -33,7 +33,7 @@ export default function CoachDashboard() {
           <p className="text-slate-500 font-medium">Manage your squad, evaluate performance, and track your own impact.</p>
         </div>
         <div className="flex gap-3">
-          <Link href="/coach/session" className="btn-primary flex items-center gap-2 no-underline">
+          <Link href="/coach/sessions" className="btn-primary flex items-center gap-2 no-underline">
             <IconTarget size={16} /> New Session
           </Link>
           <Link href="/coach/evaluate" className="btn-secondary flex items-center gap-2 no-underline">
