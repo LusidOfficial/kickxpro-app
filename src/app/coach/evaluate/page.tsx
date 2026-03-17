@@ -180,15 +180,31 @@ export default function EvaluatePage() {
                       <span>{metric.label}</span>
                       <span className="text-emerald-600 text-xs md:text-sm font-black">{val}</span>
                     </div>
-                    <div className="slider-wrapper">
-                      <div className="slider-fill" style={{ width: `${val}%` }} />
+                    <div className="relative h-3 md:h-4 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60 shadow-inner">
+                      <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-300 ease-out" 
+                           style={{ 
+                             width: `${val}%`, 
+                             background: val < 40 ? "linear-gradient(90deg, #F87171, #EF4444)" : val < 75 ? "linear-gradient(90deg, #FBBF24, #F59E0B)" : "linear-gradient(90deg, #34D399, #10B981)" 
+                           }} 
+                      />
+                      {/* Visible Thumb Knob */}
+                      <div 
+                        className="absolute top-1/2 -translate-y-1/2 w-6 h-6 md:w-7 md:h-7 rounded-full bg-white shadow-lg border-2 flex items-center justify-center text-[8px] md:text-[9px] font-black transition-all duration-300 ease-out pointer-events-none z-10"
+                        style={{ 
+                          left: `calc(${val}% - 14px)`,
+                          borderColor: val < 40 ? "#EF4444" : val < 75 ? "#F59E0B" : "#10B981",
+                          color: val < 40 ? "#EF4444" : val < 75 ? "#F59E0B" : "#10B981"
+                        }}
+                      >
+                        {val}
+                      </div>
                       <input
                         type="range"
                         min="1"
                         max="99"
                         value={val}
                         onChange={(e) => handleScoreChange(metric.key, parseInt(e.target.value))}
-                        className="skill-slider"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                       />
                     </div>
                   </div>
@@ -272,21 +288,25 @@ export default function EvaluatePage() {
             </div>
           </div>
 
-          <div>
+          <div className="pt-2">
             <div className="flex items-center justify-between mb-3 md:mb-4">
-              <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">4. Smart Summary</h3>
+              <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                4. KickXPro Report
+              </h3>
               <button 
                 onClick={generateSummary}
-                className="text-[10px] md:text-xs font-bold text-white bg-blue-500 hover:bg-blue-600 px-3 py-1.5 rounded-lg shadow-sm transition-colors"
+                className="text-[10px] md:text-xs font-bold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-lg shadow-sm transition-colors flex items-center gap-1.5 border border-emerald-200 group"
               >
-                Auto-Generate ✨
+                Auto Create <span className="group-hover:scale-110 transition-transform">📋</span>
               </button>
             </div>
             
-            <div className="card-static p-1 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
+            <div className="relative rounded-2xl p-1 bg-slate-900 shadow-xl overflow-hidden group">
+               {/* Ambient Glow */}
+               <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none transition-opacity group-focus-within:opacity-100 opacity-40" />
                <textarea
-                className="w-full h-28 md:h-32 p-3 md:p-4 bg-transparent border-none outline-none font-medium text-slate-700 text-xs md:text-sm leading-relaxed"
-                placeholder="Click auto-generate or type your evaluation notes here..."
+                className="relative z-10 w-full h-28 md:h-32 p-3 md:p-4 bg-slate-900/50 border border-slate-700/50 rounded-xl outline-none font-medium text-slate-100 text-xs md:text-sm leading-relaxed placeholder:text-slate-600 focus:border-emerald-500/40 transition-colors resize-none custom-scrollbar"
+                placeholder="Click Auto Create or manually type tactical notes for this player..."
                 value={currentData.summary}
                 onChange={(e) => updateCurrentData({ summary: e.target.value })}
               />

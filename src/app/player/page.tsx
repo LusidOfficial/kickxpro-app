@@ -13,7 +13,7 @@ import RankBadge from "@/components/RankBadge";
 import { COACH_TAGS } from "@/lib/constants";
 import { 
   IconClipboard, IconCheck, IconActivity, IconFire, IconStar, 
-  IconUser, IconMessageSquare, IconTrendingUp, IconTarget, IconAward 
+  IconUser, IconMessageSquare, IconTrendingUp, IconTarget, IconAward, IconShield, IconPlay
 } from "@/components/Icons";
 
 /* ── Demo data ── */
@@ -52,8 +52,16 @@ export default function PlayerDashboard() {
     { id: 3, text: "Maintain 10-day streak", done: false },
   ]);
 
+  const [showFAQ, setShowFAQ] = useState(false);
+  const [inviteToast, setInviteToast] = useState(false);
+
   const toggleGoal = (id: number) => {
     setGoals(goals.map(g => g.id === id ? { ...g, done: !g.done } : g));
+  };
+
+  const handleInvite = () => {
+    setInviteToast(true);
+    setTimeout(() => setInviteToast(false), 3000);
   };
 
   const [coachRating, setCoachRating] = useState(0);
@@ -157,11 +165,68 @@ export default function PlayerDashboard() {
             <RankBadge avgScore={3.8} />
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            {/* Weekly Performance Spark */}
+            <div className="card-static p-5 bg-white shadow-sm border border-slate-200/60 rounded-2xl relative overflow-hidden group">
+               <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center justify-between">
+                 Weekly Effort Spark
+                 <span className="text-emerald-500 font-black">+12%</span>
+               </h3>
+               <div className="flex items-end h-16 gap-1 mt-2">
+                 {[6, 8, 7, 5, 9, 8, 9].map((val, i) => (
+                   <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1 group/bar relative">
+                     <div 
+                       className="w-full rounded-t-sm transition-all duration-500 ease-out group-hover/bar:bg-emerald-400 cursor-pointer"
+                       style={{ 
+                         height: `${(val / 10) * 100}%`,
+                         background: val >= 8 ? "#10B981" : val >= 6 ? "#3B82F6" : "#94A3B8"
+                       }}
+                     />
+                     {/* Tooltip on hover */}
+                     <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] font-bold px-1.5 py-0.5 rounded opacity-0 group-hover/bar:opacity-100 transition-opacity pointer-events-none z-10">
+                       {val}/10
+                     </div>
+                   </div>
+                 ))}
+               </div>
+            </div>
+
+            {/* Next Session */}
+            <div className="card-static p-5 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl relative overflow-hidden group">
+               <div className="absolute -top-10 -right-10 w-24 h-24 bg-emerald-500/20 rounded-full blur-2xl group-hover:bg-emerald-500/30 transition-colors pointer-events-none" />
+               <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5 relative z-10">
+                 <IconPlay size={14} color="#10B981" /> Next Session
+               </h3>
+               <div className="relative z-10">
+                 <div className="text-2xl font-black font-heading mb-1 tracking-tight">Wed, 5:30 PM</div>
+                 <div className="text-xs font-bold text-emerald-400 uppercase tracking-widest border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 rounded inline-block">
+                   Tactical Focus
+                 </div>
+               </div>
+            </div>
+          </div>
+
         </div>
 
         {/* Right Col: Coach & Feedback */}
         <div className="space-y-8">
           
+          {/* Action Buttons */}
+          <div className="grid grid-cols-2 gap-4">
+            <button 
+              onClick={handleInvite}
+              className="flex items-center justify-center gap-2 p-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl shadow-md font-bold text-xs md:text-sm hover:scale-105 transition-transform"
+            >
+              <IconUser size={16} /> Invite Friend
+            </button>
+            <button 
+              onClick={() => setShowFAQ(true)} 
+              className="flex items-center justify-center gap-2 p-3 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm font-bold text-xs md:text-sm hover:bg-slate-50 transition-colors group"
+            >
+              <IconShield size={16} className="text-slate-400 group-hover:text-blue-500 transition-colors" /> How it Works
+            </button>
+          </div>
+
           {/* Coach Card & Inbox */}
           <div className="card-static p-6 relative overflow-hidden group">
             <div className="absolute -top-10 -right-10 w-24 h-24 bg-blue-50 rounded-full blur-2xl group-hover:bg-blue-100 transition-colors pointer-events-none" />
@@ -289,6 +354,49 @@ export default function PlayerDashboard() {
 
         </div>
       </div>
+      {/* Top Level Toasts & Modals */}
+      {inviteToast && (
+        <div className="fixed bottom-6 right-6 bg-emerald-600 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center justify-center gap-3 z-50 animate-slide-in font-bold text-sm">
+          <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+            <IconCheck size={14} color="white" />
+          </div>
+          Invite link copied! Your coach will approve them.
+        </div>
+      )}
+
+      {showFAQ && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowFAQ(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 md:p-8 animate-scale-in relative border border-slate-100" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowFAQ(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors bg-slate-50 w-8 h-8 rounded-full flex items-center justify-center">
+               ✕
+            </button>
+            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3" style={{ fontFamily: "var(--font-heading)" }}>
+              <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center"><IconShield size={20} /></div> 
+              KickXPro Guide
+            </h2>
+            
+            <div className="space-y-6">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <h4 className="font-bold text-slate-900 text-sm mb-2 flex items-center gap-2"><IconTrendingUp size={16} color="#10B981" /> Player Tiers & Ranks</h4>
+                <p className="text-xs text-slate-600 leading-relaxed">Your Rank (e.g., Academy Prospect, First Team) is calculated by your rolling average Evaluation Score over your last training sessions. Consistently score above 80 to rank up!</p>
+              </div>
+              
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <h4 className="font-bold text-slate-900 text-sm mb-2 flex items-center gap-2"><IconActivity size={16} color="#3B82F6" /> Improvement Rate</h4>
+                <p className="text-xs text-slate-600 leading-relaxed">This metric shows how fast you are growing. If your core attributes in the Radar Chart expand week-over-week, your Improvement Rate spikes, increasing your odds of a team promotion.</p>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <h4 className="font-bold text-slate-900 text-sm mb-2 flex items-center gap-2"><IconUser size={16} color="#F59E0B" /> Inviting Teammates</h4>
+                <p className="text-xs text-slate-600 leading-relaxed">When you invite a friend, they are sent directly to your Coach's approval queue. Once accepted, they join your team roster automatically and can compare stats.</p>
+              </div>
+            </div>
+
+            <button onClick={() => setShowFAQ(false)} className="w-full mt-8 btn-primary font-bold py-3.5 shadow-md">Got it, let's play!</button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

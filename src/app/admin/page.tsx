@@ -23,6 +23,8 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(DEMO_STATS);
   const [users, setUsers] = useState(DEMO_RECENT_USERS);
   const [isLive, setIsLive] = useState(false);
+  const [password, setPassword] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -38,6 +40,33 @@ export default function AdminDashboard() {
     };
     const c = config[role] || { label: role, color: "#8896A7", bg: "rgba(255,255,255,0.05)" };
     return <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: c.bg, color: c.color }}>{c.label}</span>;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-md mx-auto mt-20 p-8 card-static text-center animate-fade-up border-2 border-indigo-100">
+         <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
+           <IconAward size={32} color="#A78BFA" />
+         </div>
+         <h1 className="text-2xl font-bold mb-2 text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>Admin Portal Access</h1>
+         <p className="text-sm text-slate-500 mb-8 px-4">Protected Route. Please enter the master password to access platform ops.</p>
+         <input 
+           type="password" 
+           value={password} 
+           onChange={e => setPassword(e.target.value)} 
+           onKeyDown={e => { if (e.key === 'Enter' && password === 'kickxadmin26') setIsAuthenticated(true); }}
+           className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center tracking-widest text-slate-900 font-bold outline-none focus:border-indigo-400 focus:bg-white transition-all mb-4" 
+           placeholder="••••••••" 
+         />
+         <button 
+           onClick={() => { if(password === 'kickxadmin26') setIsAuthenticated(true); }}
+           className="w-full btn-primary bg-indigo-600 hover:bg-indigo-700 shadow-md font-bold py-3 text-sm"
+         >
+           Authenticate
+         </button>
+         <div className="mt-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest opacity-50">Demo Pass: kickxadmin26</div>
+      </div>
+    );
   }
 
   return (

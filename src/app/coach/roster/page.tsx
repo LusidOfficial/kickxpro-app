@@ -84,6 +84,80 @@ export default function RosterPage() {
           <p className="text-slate-500 font-medium text-xs md:text-sm">Manage your players, view precise stats, and send direct feedback metrics.</p>
         </div>
 
+        {/* ── Football Pitch Visualization ── */}
+        <div className="mb-8 relative w-full aspect-[4/3] max-w-2xl mx-auto rounded-3xl overflow-hidden shadow-sm border border-emerald-900/10">
+          {/* Pitch Background */}
+          <div className="absolute inset-0 bg-[#0A7131] pitch-stripes" />
+          
+          {/* Pitch Lines SVG */}
+          <svg className="absolute inset-0 w-full h-full opacity-60 pointer-events-none" viewBox="0 0 100 130" preserveAspectRatio="none">
+            {/* Outer Boundary */}
+            <rect x="5" y="5" width="90" height="120" fill="none" stroke="#fff" strokeWidth="0.5" />
+            {/* Center Line */}
+            <line x1="5" y1="65" x2="95" y2="65" stroke="#fff" strokeWidth="0.5" />
+            {/* Center Circle */}
+            <circle cx="50" cy="65" r="12" fill="none" stroke="#fff" strokeWidth="0.5" />
+            <circle cx="50" cy="65" r="1.5" fill="#fff" />
+            {/* Top Penalty Area */}
+            <rect x="25" y="5" width="50" height="22" fill="none" stroke="#fff" strokeWidth="0.5" />
+            <rect x="38" y="5" width="24" height="8" fill="none" stroke="#fff" strokeWidth="0.5" />
+            <path d="M 38 27 A 15 15 0 0 0 62 27" fill="none" stroke="#fff" strokeWidth="0.5" />
+            <circle cx="50" cy="20" r="1" fill="#fff" />
+            {/* Bottom Penalty Area */}
+            <rect x="25" y="103" width="50" height="22" fill="none" stroke="#fff" strokeWidth="0.5" />
+            <rect x="38" y="117" width="24" height="8" fill="none" stroke="#fff" strokeWidth="0.5" />
+            <path d="M 38 103 A 15 15 0 0 1 62 103" fill="none" stroke="#fff" strokeWidth="0.5" />
+            <circle cx="50" cy="110" r="1" fill="#fff" />
+            {/* Corner Arcs */}
+            <path d="M 5 10 A 5 5 0 0 0 10 5" fill="none" stroke="#fff" strokeWidth="0.5" />
+            <path d="M 90 5 A 5 5 0 0 0 95 10" fill="none" stroke="#fff" strokeWidth="0.5" />
+            <path d="M 5 120 A 5 5 0 0 1 10 125" fill="none" stroke="#fff" strokeWidth="0.5" />
+            <path d="M 95 120 A 5 5 0 0 0 90 125" fill="none" stroke="#fff" strokeWidth="0.5" />
+          </svg>
+
+          {/* Player Mapping */}
+          {roster.map(p => {
+             // Map standard positions to SVG percentages (x, y)
+             // Using bottom half for defense, top half for attack
+             let top = "50%", left = "50%";
+             if (p.pos === "GK") { top = "90%"; left = "50%"; }
+             else if (p.pos === "CB") { top = "75%"; left = "50%"; } // Need to scatter if multiple CBs, but fine for mockup
+             else if (p.pos === "FB" || p.pos === "RB") { top = "75%"; left = "85%"; }
+             else if (p.pos === "LB") { top = "75%"; left = "15%"; }
+             else if (p.pos === "CM" || p.pos === "MID") { top = "55%"; left = "50%"; }
+             else if (p.pos === "RW") { top = "30%"; left = "80%"; }
+             else if (p.pos === "LW") { top = "30%"; left = "20%"; }
+             else if (p.pos === "ST" || p.pos === "FWD") { top = "20%"; left = "50%"; }
+             
+             // In demo data: Arjun(ST), Sanjay(ST), Neha(CM), Rahul(CB), Priya(RW), Aarav(GK)
+             // Manually scatter overlapping STs for demo aesthetics
+             if (p.id === "P001") { top = "20%"; left = "40%"; } // Arjun ST
+             if (p.id === "P004") { top = "20%"; left = "60%"; } // Sanjay ST
+
+             const isSelected = selectedPlayer === p.id;
+             const formColor = p.form.filter(f => f === 'W').length >= 3 ? "#10B981" : 
+                               p.form.filter(f => f === 'L').length >= 3 ? "#EF4444" : "#F59E0B";
+
+             return (
+               <button
+                 key={`pitch-${p.id}`}
+                 onClick={() => setSelectedPlayer(p.id)}
+                 className={`absolute transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] transition-all duration-300 shadow-xl z-10 border-2
+                   ${isSelected ? "ring-4 ring-white scale-125 z-20" : "hover:scale-110"}`}
+                 style={{
+                   top, 
+                   left,
+                   backgroundColor: isSelected ? "#fff" : formColor,
+                   borderColor: isSelected ? formColor : "#fff",
+                   color: isSelected ? formColor : "#fff"
+                 }}
+               >
+                 {p.num}
+               </button>
+             );
+          })}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
           {MOCK_ROSTER.map((player) => (
             <div 

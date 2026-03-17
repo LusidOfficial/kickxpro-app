@@ -41,6 +41,8 @@ export default function PlayerDisciplinePage() {
 
   const [newGoalText, setNewGoalText] = useState("");
   const [showNewGoal, setShowNewGoal] = useState(false);
+  const [journalText, setJournalText] = useState("");
+  const [journalSaved, setJournalSaved] = useState(false);
 
   const currentStreak = 3;
   const avgEffort = (MOCK_EFFORT_HISTORY.reduce((sum, d) => sum + d.effort, 0) / MOCK_EFFORT_HISTORY.length).toFixed(1);
@@ -57,6 +59,12 @@ export default function PlayerDisciplinePage() {
     if (score >= 8) return "#10B981";
     if (score >= 6) return "#F59E0B";
     return "#EF4444";
+  };
+
+  const handleSaveJournal = () => {
+    if (!journalText.trim()) return;
+    setJournalSaved(true);
+    setTimeout(() => setJournalSaved(false), 3000);
   };
 
   return (
@@ -196,6 +204,56 @@ export default function PlayerDisciplinePage() {
               })}
             </div>
           </div>
+
+          {/* Daily Journal & Weekly Challenge */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Daily Journal */}
+            <div className="card-static p-6 flex flex-col h-full bg-slate-800 text-white relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none transition-opacity opacity-50 group-focus-within:opacity-100" />
+              <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2 relative z-10" style={{ fontFamily: "var(--font-heading)" }}>
+                <IconClipboard size={16} className="text-indigo-400" /> Daily Reflection
+              </h3>
+              <p className="text-xs text-indigo-200 mb-4 relative z-10">What did you learn today? Write a quick note down to track your mindset.</p>
+              <textarea
+                className="flex-1 w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 text-sm resize-none outline-none focus:border-indigo-500/50 transition-colors custom-scrollbar relative z-10 mb-4"
+                placeholder="I felt really sharp on my first touch today..."
+                value={journalText}
+                onChange={(e) => setJournalText(e.target.value)}
+              />
+              <button 
+                onClick={handleSaveJournal}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 font-bold text-xs rounded-xl transition-colors relative z-10"
+              >
+                {journalSaved ? "Saved! ✓" : "Save Reflection"}
+              </button>
+            </div>
+
+            {/* Weekly Challenge */}
+            <div className="card-static p-6 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100 relative overflow-hidden">
+              <div className="absolute -top-10 -right-10 w-24 h-24 bg-orange-400/20 rounded-full blur-2xl pointer-events-none" />
+              <div className="flex items-center justify-between mb-4 relative z-10">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2" style={{ fontFamily: "var(--font-heading)" }}>
+                  <span className="text-xl">⚡</span> Weekly Challenge
+                </h3>
+                <span className="text-[9px] font-black uppercase tracking-widest text-orange-600 bg-orange-100 px-2 py-0.5 rounded">Ends Sun</span>
+              </div>
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-orange-100 mb-4 relative z-10">
+                <p className="font-bold text-slate-900 text-base mb-1">Score 3 goals in training</p>
+                <p className="text-xs text-slate-500 mb-4">Focus on finishing in the final third. Use both feet.</p>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-2">
+                  <div className="h-full bg-gradient-to-r from-orange-400 to-amber-500 rounded-full" style={{ width: '66%' }} />
+                </div>
+                <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                  <span>Progress</span>
+                  <span className="text-orange-600">2 / 3 Goals</span>
+                </div>
+              </div>
+              <button className="w-full py-2 border-2 border-orange-200 text-orange-700 bg-white font-bold text-xs rounded-xl hover:bg-orange-50 transition-colors relative z-10">
+                Log Progress
+              </button>
+            </div>
+          </div>
+
         </div>
 
         {/* ── Right: Badges ── */}

@@ -20,16 +20,16 @@ import {
 
 /* ── Drill Library (seed data — will transition to DB) ── */
 const SEED_DRILLS = [
-  { id: "d1", title: "Rondo 4v2", category: "Passing", duration_mins: 10, difficulty: "Beginner", description: "Quick one-touch passing in a tight circle. Defenders press." },
-  { id: "d2", title: "1v1 Box Finishing", category: "Shooting", duration_mins: 15, difficulty: "Intermediate", description: "Attacker receives on the edge of box, beats defender, shoots." },
-  { id: "d3", title: "Shuttle Sprints", category: "Fitness", duration_mins: 12, difficulty: "Advanced", description: "High-intensity interval sprints with 30s rest between sets." },
-  { id: "d4", title: "Shadow Play", category: "Tactical", duration_mins: 20, difficulty: "Intermediate", description: "Full-team shape drill without opposition. Focus: movement patterns." },
-  { id: "d5", title: "Cross & Finish", category: "Shooting", duration_mins: 15, difficulty: "Beginner", description: "Wingers deliver crosses; attackers finish first-time." },
-  { id: "d6", title: "Pressing Triggers", category: "Tactical", duration_mins: 15, difficulty: "Advanced", description: "Team learns when to press and how to cut passing lanes." },
-  { id: "d7", title: "GK Reaction Saves", category: "Goalkeeping", duration_mins: 10, difficulty: "Intermediate", description: "Rapid-fire shots from close range to train reflexes." },
-  { id: "d8", title: "Agility Ladder", category: "Fitness", duration_mins: 8, difficulty: "Beginner", description: "Footwork drills through agility ladder for coordination." },
-  { id: "d9", title: "Match Simulation 7v7", category: "Match Prep", duration_mins: 25, difficulty: "Intermediate", description: "Small-sided game with specific tactical objectives." },
-  { id: "d10", title: "Corner Kick Routines", category: "Tactical", duration_mins: 12, difficulty: "Beginner", description: "Set-piece routines: near post, far post, short corner variations." },
+  { id: "d1", title: "La Masia Rondo 4v2", category: "Passing", duration_mins: 10, difficulty: "Beginner", description: "Quick one-touch passing in a tight circle. Defensive triggers." },
+  { id: "d2", title: "Ajax Positional Play", category: "Tactical", duration_mins: 20, difficulty: "Advanced", description: "Full-team shape drill focusing on 'Totaalvoetbal' spatial awareness." },
+  { id: "d3", title: "Bayer High Press", category: "Tactical", duration_mins: 15, difficulty: "Advanced", description: "Gegenpressing triggers inspired by Xabi Alonso's Leverkusen." },
+  { id: "d4", title: "Real Madrid Counter", category: "Match Prep", duration_mins: 15, difficulty: "Intermediate", description: "Rapid transition from deep defense to a 3-man fast break." },
+  { id: "d5", title: "Man City Box Control", category: "Passing", duration_mins: 15, difficulty: "Intermediate", description: "Overloading the midfield box to retain possession under pressure." },
+  { id: "d6", title: "Bayern Wing Overloads", category: "Tactical", duration_mins: 20, difficulty: "Advanced", description: "Creating 2v1 situations on the flanks for cut-back finishes." },
+  { id: "d7", title: "Dortmund Wall Pass", category: "Shooting", duration_mins: 10, difficulty: "Beginner", description: "Quick 1-2 combination play outside the box ending in a shot." },
+  { id: "d8", title: "Bielsa Murderball", category: "Fitness", duration_mins: 12, difficulty: "Advanced", description: "Unrelenting, non-stop 11v11 scrimmage to build extreme stamina." },
+  { id: "d9", title: "1v1 Keeper Isolation", category: "Goalkeeping", duration_mins: 10, difficulty: "Intermediate", description: "Attacker vs Goalkeeper simulating breakaway reactions." },
+  { id: "d10", title: "Set-Piece Mastery", category: "Match Prep", duration_mins: 15, difficulty: "Beginner", description: "Practicing near-post flicks and far-post blocking routines." },
 ];
 
 const CATEGORY_ICONS: Record<string, JSX.Element> = {
@@ -145,7 +145,33 @@ export default function SessionsHubPage() {
     const s = seconds % 60;
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
-  const timerProgress = ((duration * 60 - timeLeft) / (duration * 60)) * 100;
+  
+  const totalSeconds = duration * 60;
+  const elapsedSeconds = totalSeconds - timeLeft;
+  const timerProgress = (elapsedSeconds / totalSeconds) * 100;
+  const activeDrillColor = "#10B981"; // Default emerald
+  
+  // Determine current active drill based on elapsed time
+  let currentActiveDrill = null;
+  let currentDrillColor = "#10B981";
+  
+  if (selectedDrills.length > 0) {
+    let accumulatedSeconds = 0;
+    for (const drill of selectedDrills) {
+      const drillSeconds = drill.duration_mins * 60;
+      accumulatedSeconds += drillSeconds;
+      if (elapsedSeconds <= accumulatedSeconds) {
+        currentActiveDrill = drill;
+        currentDrillColor = CATEGORY_COLORS[drill.category] || "#10B981";
+        break;
+      }
+    }
+  }
+
+  // Calculate SVG stroke dashes for the ring segments (for aesthetics)
+  const radius = 60;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (timerProgress / 100) * circumference;
 
   return (
     <div className="max-w-6xl mx-auto pb-24 px-4 xl:px-0 opacity-0 animate-fade-up">
@@ -231,22 +257,43 @@ export default function SessionsHubPage() {
                 </div>
               </div>
 
-              {/* Selected Drills Preview */}
+              {/* Selected Drills Preview & Timeline */}
               {selectedDrills.length > 0 && (
-                <div>
-                  <label className="block text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
-                    Session Drills ({selectedDrills.length}) — {totalDrillMins} min total
+                <div className="card-static border-emerald-100 bg-emerald-50/30 p-4 md:p-5">
+                  <label className="block text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
+                    Session Timeline ({selectedDrills.length} Drills)
                   </label>
+                  
+                  {/* Visual Combo Bar */}
+                  <div className="w-full h-3 md:h-5 bg-white rounded-full overflow-hidden flex shadow-inner border border-slate-200 mb-4">
+                    {selectedDrills.map((d, i) => (
+                      <div 
+                        key={d.id + i}
+                        className="h-full transition-all hover:brightness-110 flex items-center justify-center border-r border-white/20 last:border-0 cursor-pointer"
+                        style={{ 
+                          width: `${(d.duration_mins / totalDrillMins) * 100}%`,
+                          background: CATEGORY_COLORS[d.category] || "#10B981"
+                        }}
+                        title={`${d.title} (${d.duration_mins}m)`}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="flex justify-between items-center mb-5 text-[10px] md:text-xs font-bold text-slate-500 border-b border-emerald-100 pb-4">
+                    <span>0m</span>
+                    <span className="text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md">{totalDrillMins} mins total</span>
+                  </div>
+
                   <div className="flex flex-wrap gap-2">
                     {selectedDrills.map((d, i) => (
                       <div
-                        key={d.id}
-                        className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl px-3 py-1.5 text-xs font-bold cursor-pointer hover:bg-emerald-100 transition-colors"
+                        key={d.id + i}
+                        className="flex items-center gap-2 bg-white text-slate-700 border border-slate-200 rounded-xl px-3 py-1.5 md:py-2 text-[10px] md:text-xs font-bold cursor-pointer hover:border-red-200 hover:bg-red-50 transition-colors shadow-sm group"
                         onClick={() => toggleDrill(d)}
                       >
-                        <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-black flex items-center justify-center">{i + 1}</span>
-                        {d.title}
-                        <span className="text-emerald-400 text-[10px]">✕</span>
+                        <span className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background: CATEGORY_COLORS[d.category] || "#10B981" }}></span>
+                        {d.title} ({d.duration_mins}m)
+                        <span className="text-slate-400 group-hover:text-red-500 ml-1">✕</span>
                       </div>
                     ))}
                   </div>
@@ -260,27 +307,63 @@ export default function SessionsHubPage() {
             </div>
           </div>
 
-          {/* Right Col: Timer */}
+          {/* Right Col: Timer & Execution */}
           <div className="lg:col-span-2">
-            <div className="card-static p-6 md:p-8 flex flex-col items-center sticky top-24">
-              <h3 className="text-lg md:text-xl font-bold mb-6 text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>Session Timer</h3>
-              <div className="relative w-40 h-40 md:w-48 md:h-48 mb-6 md:mb-8 flex items-center justify-center">
-                <svg className="absolute inset-0 w-full h-full transform -rotate-90">
-                  <circle cx="50%" cy="50%" r="45%" fill="none" stroke="var(--color-surface-2)" strokeWidth="12" />
-                  <circle
-                    cx="50%" cy="50%" r="45%" fill="none"
-                    stroke="#10B981" strokeWidth="12"
+            <div className="card-static p-6 md:p-8 flex flex-col items-center justify-center min-h-[400px] sticky top-24 pitch-accent">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-6" style={{ fontFamily: "var(--font-heading)" }}>Session Timer</h3>
+              
+              <div className="relative w-48 h-48 md:w-56 md:h-56 flex items-center justify-center mb-8">
+                {/* Background Ring */}
+                <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 140 140">
+                  <circle cx="70" cy="70" r={radius} fill="none" stroke="#E2E8F0" strokeWidth="8" />
+                  
+                  {/* Progress Ring */}
+                  <circle 
+                    cx="70" 
+                    cy="70" 
+                    r={radius} 
+                    fill="none" 
+                    stroke={currentDrillColor} 
+                    strokeWidth="8" 
                     strokeLinecap="round"
-                    strokeDasharray="283"
-                    strokeDashoffset={283 * (1 - timerProgress / 100)}
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
                     className="transition-all duration-1000 ease-linear"
-                    style={{ filter: "drop-shadow(0 0 8px rgba(16,185,129,0.3))" }}
                   />
+                  
+                  {/* Decorative dots for each drill segment */}
+                  {selectedDrills.length > 0 && selectedDrills.reduce((acc, drill, index) => {
+                    const drillSeconds = drill.duration_mins * 60;
+                    acc.accum += drillSeconds;
+                    const percent = acc.accum / (duration * 60);
+                    if (percent < 1) { // Don't draw at exactly 100%
+                      const angle = percent * 2 * Math.PI;
+                      const x = 70 + radius * Math.cos(angle);
+                      const y = 70 + radius * Math.sin(angle);
+                      acc.elements.push(
+                        <circle key={index} cx={x} cy={y} r="3" fill="#FFF" stroke="#CBD5E1" strokeWidth="1" />
+                      );
+                    }
+                    return acc;
+                  }, { accum: 0, elements: [] as JSX.Element[] }).elements}
                 </svg>
-                <div className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight" style={{ fontFamily: "var(--font-heading)", fontVariantNumeric: "tabular-nums" }}>
-                  {formatTime(timeLeft)}
+                
+                <div className="text-center absolute flex flex-col items-center justify-center">
+                  <div className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight transition-colors duration-500" style={{ fontFamily: "var(--font-heading)", fontVariantNumeric: "tabular-nums", color: isTimerRunning ? currentDrillColor : '#0F172A' }}>
+                    {formatTime(timeLeft)}
+                  </div>
+                  {currentActiveDrill ? (
+                    <div className="mt-2 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md truncate max-w-[120px]" style={{ background: `${currentDrillColor}15`, color: currentDrillColor }}>
+                      {currentActiveDrill.title}
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 py-0.5 rounded-md" style={{ background: '#F1F5F9' }}>
+                      {isTimerRunning ? "Free Play" : "Ready"}
+                    </div>
+                  )}
                 </div>
               </div>
+              
               <div className="flex flex-col md:flex-row w-full gap-3">
                 <button
                   onClick={toggleTimer}
@@ -291,7 +374,7 @@ export default function SessionsHubPage() {
                 </button>
                 <button
                   onClick={endSession}
-                  className="flex-1 py-3 md:py-4 rounded-full flex items-center justify-center gap-2 text-xs md:text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
+                  className="flex-1 py-3 md:py-4 rounded-full flex items-center justify-center gap-2 text-xs md:text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400"
                 >
                   <IconSquare size={16} /> End & Eval
                 </button>

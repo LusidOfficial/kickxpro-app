@@ -6,6 +6,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import Navbar from "@/components/Navbar";
 import { IconUser, IconClipboard, IconShield, IconChevronRight, IconPlusCircle } from "@/components/Icons";
 
@@ -24,13 +25,6 @@ const PORTALS = [
     iconComponent: <IconClipboard size={26} color="#60A5FA" />,
     accent: "#60A5FA",
   },
-  {
-    role: "Admin",
-    href: "/admin",
-    description: "Platform management, users, and analytics",
-    iconComponent: <IconShield size={26} color="#A78BFA" />,
-    accent: "#A78BFA",
-  },
 ];
 
 export default function LandingPage() {
@@ -44,18 +38,28 @@ export default function LandingPage() {
 
       <main className="flex-1 flex flex-col items-center justify-center px-5 pb-16 relative z-10">
         {/* Hero */}
-        <div className="text-center mb-12 opacity-0 animate-fade-up" style={{ animationFillMode: "forwards" }}>
-          {/* Logo Mark */}
-          <div className="w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-6 animate-pulse-glow" style={{ background: "rgba(0,200,83,0.08)", border: "1px solid rgba(0,200,83,0.15)" }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00C853" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <polygon points="10 8 16 12 10 16 10 8" />
-            </svg>
+        <div className="text-center mb-12 opacity-0 animate-fade-up" style={{ animationDelay: "0.1s", animationFillMode: "forwards" }}>
+          {/* 3D Interactive Logo Mark */}
+          <div className="relative w-44 h-44 md:w-52 md:h-52 mx-auto mb-8 xball-hero">
+            <Image 
+              src="/xball.png" 
+              alt="KickXPro 3D Ball" 
+              fill 
+              className="object-contain"
+              priority
+            />
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-bold mb-3 tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>
-            Kick<span className="text-gradient">X</span>Pro
-          </h1>
+          {/* Branded Text Logo */}
+          <div className="relative w-72 h-16 md:w-80 md:h-20 mx-auto mb-4">
+             <Image 
+               src="/logo-text.png" 
+               alt="KickXPro" 
+               fill 
+               className="object-contain"
+               priority
+             />
+          </div>
 
           <p className="text-sm md:text-base max-w-md mx-auto" style={{ color: "var(--color-text-muted)", lineHeight: 1.7 }}>
             AI-powered sports performance platform for coaches and players.
@@ -64,7 +68,7 @@ export default function LandingPage() {
         </div>
 
         {/* Portal Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-3xl mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl mb-8">
           {PORTALS.map((portal, i) => (
             <Link
               key={portal.role}

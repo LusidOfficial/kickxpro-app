@@ -7,9 +7,14 @@
 
 import Link from "next/link";
 import StatCard from "@/components/StatCard";
+import RadarChart from "@/components/RadarChart";
+import { SKILL_METRICS } from "@/lib/constants";
 import { 
-  IconUsers, IconClipboard, IconTarget, IconStar, IconMessageSquare, IconTrendingUp 
+  IconUsers, IconClipboard, IconTarget, IconStar, IconMessageSquare, IconTrendingUp, IconActivity 
 } from "@/components/Icons";
+
+const TEAM_AVG_SCORES = { pace: 75, shooting: 68, passing: 82, dribbling: 70, defending: 65, physical: 72 };
+const teamRadarData = SKILL_METRICS.map(m => ({ label: m.short, value: (TEAM_AVG_SCORES[m.key as keyof typeof TEAM_AVG_SCORES] || 50) / 20 }));
 
 const DEMO_PLAYERS = [
   { id: "P001", name: "Arjun Mehta", pos: "Midfielder", latestScore: 4.2, streak: 3, lastNote: "Great vision today." },
@@ -53,13 +58,28 @@ export default function CoachDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Left Col: Roster List (Takes up 2 cols) */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>Player Roster</h2>
-            <button className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition-colors">View All →</button>
-          </div>
+        <div className="lg:col-span-2 space-y-8">
           
-          <div className="card-static overflow-hidden">
+          {/* TEAM AGGREGATE CHART */}
+          <div className="card-static p-6 flex flex-col md:flex-row items-center justify-between gap-6 opacity-0 animate-fade-up">
+            <div className="w-full md:w-1/2 space-y-3 text-center md:text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-lg mb-2">
+                <IconActivity size={14} /> Squad Form
+              </div>
+              <h3 className="text-xl md:text-2xl font-bold text-slate-900" style={{ fontFamily: "var(--font-heading)", letterSpacing: "-0.02em" }}>Team Aggregate</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">Your squad excels in <strong className="text-emerald-600">Passing (82)</strong> and Pace (75). Focus more tactical energy defensively (65).</p>
+            </div>
+            <div className="w-full md:w-1/2 flex justify-center border-l-0 md:border-l border-slate-100 py-2">
+              <RadarChart data={teamRadarData} size={200} />
+            </div>
+          </div>
+
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>Player Roster</h2>
+              <button className="text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition-colors">View All →</button>
+            </div>
+            
+            <div className="card-static overflow-hidden">
             {/* Table Header */}
             <div className="grid grid-cols-12 gap-4 px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 bg-slate-50">
               <div className="col-span-5">Player</div>

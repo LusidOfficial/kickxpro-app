@@ -15,10 +15,12 @@ export default function TournamentsPage() {
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
+  const [location, setLocation] = useState("");
+  const [price, setPrice] = useState("");
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [tournaments, setTournaments] = useState([
-    { id: 1, name: "Summer City Cup", date: "2026-06-15", teams: ["Trinity FC U18", "Metro United"], status: "Upcoming" },
-    { id: 2, name: "KickX Regional Qualifiers", date: "2026-04-20", teams: ["Spartans Academy", "KickX Elite", "Trinity FC U18"], status: "Active" }
+    { id: 1, name: "Summer City Cup", date: "2026-06-15", location: "Grand Stadium", price: "$500", teams: ["Trinity FC U18", "Metro United"], status: "Upcoming" },
+    { id: 2, name: "KickX Regional Qualifiers", date: "2026-04-20", location: "North Pitch 1", price: "Free", teams: ["Spartans Academy", "KickX Elite", "Trinity FC U18"], status: "Active" }
   ]);
 
   const toggleTeam = (team: string) => {
@@ -32,12 +34,14 @@ export default function TournamentsPage() {
   const createTournament = () => {
     if (!name || selectedTeams.length === 0) return;
     setTournaments([
-      { id: Date.now(), name, date: date || "TBD", teams: selectedTeams, status: "Upcoming" },
+      { id: Date.now(), name, date: date || "TBD", location: location || "TBD", price: price || "Free", teams: selectedTeams, status: "Upcoming" },
       ...tournaments
     ]);
     setShowModal(false);
     setName("");
     setDate("");
+    setLocation("");
+    setPrice("");
     setSelectedTeams([]);
   };
 
@@ -70,8 +74,13 @@ export default function TournamentsPage() {
             </div>
             
             <h3 className="text-lg font-bold text-slate-900 mb-1">{t.name}</h3>
-            <div className="text-xs font-semibold text-slate-500 mb-6 flex items-center gap-2">
+            <div className="text-xs font-semibold text-slate-500 mb-2 flex items-center gap-2">
               <IconCalendar size={14} /> {t.date}
+            </div>
+            
+            <div className="flex items-center gap-4 text-xs font-bold text-slate-400 mb-6">
+               <span className="flex items-center gap-1">📍 {t.location}</span>
+               <span className="flex items-center gap-1">💵 {t.price}</span>
             </div>
 
             <div className="mt-auto">
@@ -115,6 +124,28 @@ export default function TournamentsPage() {
                   className="input text-sm" 
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Location</label>
+                <input 
+                  type="text" 
+                  className="input text-sm" 
+                  placeholder="e.g. Center Pitch" 
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Registration Price</label>
+                <input 
+                  type="text" 
+                  className="input text-sm" 
+                  placeholder="e.g. $150 or Free" 
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
                 />
               </div>
 
