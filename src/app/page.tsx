@@ -100,14 +100,20 @@ export default function LandingPage() {
           ))}
         </div>
 
-        {/* Register CTA */}
-        <div className="opacity-0 animate-fade-up" style={{ animationDelay: "0.5s", animationFillMode: "forwards" }}>
+        {/* Register & Login CTA */}
+        <div className="opacity-0 animate-fade-up flex items-center justify-center gap-4" style={{ animationDelay: "0.5s", animationFillMode: "forwards" }}>
+          <Link
+            href="/login"
+            className="btn-primary flex items-center gap-2 no-underline text-sm px-6 py-2.5"
+          >
+            Sign In To Portal
+          </Link>
           <Link
             href="/register"
-            className="btn-secondary flex items-center gap-2 no-underline text-sm"
+            className="btn-secondary flex items-center gap-2 no-underline text-sm px-6 py-2.5"
           >
             <IconPlusCircle size={16} />
-            New here? Register
+            Register
           </Link>
         </div>
 
