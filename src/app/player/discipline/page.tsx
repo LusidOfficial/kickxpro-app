@@ -8,7 +8,7 @@
 import { useState } from "react";
 import {
   IconCheck, IconTarget, IconActivity, IconFire,
-  IconTrendingUp, IconAward, IconPlus, IconZap
+  IconTrendingUp, IconAward, IconPlus, IconZap, IconClipboard
 } from "@/components/Icons";
 
 /* ── Mock Discipline Data ── */
