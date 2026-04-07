@@ -10,11 +10,13 @@ import { useState } from "react";
 import Image from "next/image";
 import { NAV_ITEMS } from "@/lib/constants";
 import { IconLogout, IconSettings, IconGrid, IconTimer, IconClipboard, IconUsers } from "@/components/Icons";
+import { useAuth } from "@/lib/auth-context";
 
 export default function Navbar({ role }: { role?: string } = {}) {
   const pathname = usePathname();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const { user, profile, signOut } = useAuth();
 
   // Determine portal from route
   const isCoach = pathname?.startsWith("/coach");
@@ -29,6 +31,15 @@ export default function Navbar({ role }: { role?: string } = {}) {
   };
 
   const currentNav = isCoach ? NAV_ITEMS.coach : isPlayer ? NAV_ITEMS.player : isAdmin ? NAV_ITEMS.admin : [];
+
+  const handleSignOut = async () => {
+    await signOut();
+    setShowProfileMenu(false);
+  };
+
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || "Demo User";
+  const initials = displayName.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase();
+  const roleDisplay = profile?.role === 'coach' ? 'Coach' : profile?.role === 'player' ? 'Player' : 'KickXPro Beta';
 
   return (
     <nav className="h-16 border-b bg-white border-slate-200 shadow-sm flex items-center justify-between px-4 md:px-6 sticky top-0 z-50">
@@ -75,22 +86,22 @@ export default function Navbar({ role }: { role?: string } = {}) {
            onClick={() => setShowProfileMenu(!showProfileMenu)}
         >
           <div className="hidden sm:block text-right">
-             <div className="text-sm font-bold text-slate-900 leading-none">Demo User</div>
-             <div className="text-[10px] font-semibold text-slate-400 mt-1">KickXPro Beta</div>
+             <div className="text-sm font-bold text-slate-900 leading-none">{displayName}</div>
+             <div className="text-[10px] font-semibold text-slate-400 mt-1">{roleDisplay}</div>
           </div>
           <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-xs font-bold text-white shadow-sm ring-2 ring-white">
-            DU
+            {initials}
           </div>
         </div>
 
         {/* Profile Dropdown Mock */}
         {showProfileMenu && (
           <div className="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-2 animate-fade-up !duration-150 z-50">
-            <button className="w-full text-left px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+            <Link href="/account-settings" onClick={() => setShowProfileMenu(false)} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 no-underline">
               <IconSettings size={14} /> Account Settings
-            </button>
+            </Link>
             <div className="h-px bg-slate-100 my-1"></div>
-            <button className="w-full text-left px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center gap-2">
+            <button onClick={handleSignOut} className="w-full text-left px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center gap-2">
               <IconLogout size={14} /> Log Out
             </button>
           </div>

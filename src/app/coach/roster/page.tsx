@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { IconSend, IconClipboard, IconAward, IconChevronRight, IconTrendingUp } from "@/components/Icons";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 
 const MOCK_ROSTER = [
   { id: "P001", num: 10, name: "Arjun M.", pos: "ST", age: 18, ovr: 72, trend: "+3", stats: { goals: 14, assists: 3, mins: 1080 }, form: ['W', 'L', 'W', 'W', 'W'], awards: [{id: "motm", name: "Player of the Match"}] },
@@ -20,6 +21,7 @@ const MOCK_ROSTER = [
 ];
 
 export default function RosterPage() {
+  const { user } = useAuth();
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [showToast, setShowToast] = useState(false);
@@ -28,11 +30,14 @@ export default function RosterPage() {
 
   useEffect(() => {
     async function fetchPlayers() {
+      if (!user) return;
+      
       try {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('role', 'player');
+          .eq('role', 'player')
+          .eq('coach_id', user.id);
           
         if (error) throw error;
         
@@ -47,20 +52,22 @@ export default function RosterPage() {
             ovr: p.overall_score || 70,
             trend: "+0",
             stats: { goals: 0, assists: 0, mins: 0 },
-            form: ['D', 'D', 'D'],
-            awards: []
+            form: ['D', 'D', 'D'] as string[],
+            awards: [] as any[]
           }));
           setRoster(liveRoster);
+        } else {
+          setRoster([]); // Empty if no players
         }
       } catch (err) {
-        console.warn('Supabase fetch failed, using fallback mock data.', err);
+        console.warn('Supabase fetch failed.', err);
       } finally {
         setLoading(false);
       }
     }
     
     fetchPlayers();
-  }, []);
+  }, [user]);
 
   const activePlayer = roster.find(p => p.id === selectedPlayer);
 
@@ -159,7 +166,7 @@ export default function RosterPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-          {MOCK_ROSTER.map((player) => (
+          {roster.map((player) => (
             <div 
               key={player.id}
               onClick={() => setSelectedPlayer(player.id)}

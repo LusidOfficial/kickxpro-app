@@ -30,18 +30,30 @@ export default function LoginPage() {
     }
 
     // Fetch profile to route appropriately
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", data.user.id)
       .single();
 
+    if (profileError) {
+      console.error("Profile fetch error:", profileError);
+      router.push("/admin"); // fallback if profile is missing
+      return;
+    }
+
+    console.log("Logged in user role:", profile?.role);
+
     if (profile?.role === "coach") {
       router.push("/coach");
     } else if (profile?.role === "player") {
       router.push("/player");
+    } else if (profile?.role === "parent") {
+      router.push("/parent");
+    } else if (profile?.role === "admin") {
+      router.push("/admin");
     } else {
-      router.push("/admin"); // fallback admin
+      router.push("/"); // final fallback
     }
   }
 
@@ -98,10 +110,20 @@ export default function LoginPage() {
           </form>
           
           <div className="mt-6 pt-6 border-t border-slate-200/50 text-center">
-             <p className="text-xs text-slate-500 mb-2">Default demo accounts (if created in Supabase):</p>
-             <div className="text-[10px] space-y-1 font-mono text-slate-400">
-               <div>coach@kickxpro.com / password123</div>
-               <div>player@kickxpro.com / password123</div>
+             <p className="text-xs text-slate-500 mb-2 font-semibold">Test / Demo Accounts:</p>
+             <div className="text-[10px] space-y-2 font-mono text-slate-400 bg-slate-50/50 p-3 rounded-xl border border-slate-200/30">
+               <div>
+                <span className="text-slate-600 font-bold block mb-0.5 uppercase tracking-tighter">Coach</span>
+                coach.ramesh@kickxpro.test / kickxpro123
+               </div>
+               <div>
+                <span className="text-slate-600 font-bold block mb-0.5 uppercase tracking-tighter">Player</span>
+                arjun.mehta@kickxpro.test / kickxpro123
+               </div>
+               <div>
+                <span className="text-slate-600 font-bold block mb-0.5 uppercase tracking-tighter">Parent</span>
+                parent.mehta@kickxpro.test / kickxpro123
+               </div>
              </div>
           </div>
         </div>

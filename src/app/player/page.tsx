@@ -5,61 +5,188 @@
    ────────────────────────────────────────────── */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 import StatCard from "@/components/StatCard";
 import RadarChart from "@/components/RadarChart";
 import StreakIndicator from "@/components/StreakIndicator";
 import RankBadge from "@/components/RankBadge";
-import { COACH_TAGS } from "@/lib/constants";
+import { COACH_TAGS, SKILL_METRICS } from "@/lib/constants";
 import { 
   IconClipboard, IconCheck, IconActivity, IconFire, IconStar, 
   IconUser, IconMessageSquare, IconTrendingUp, IconTarget, IconAward, IconShield, IconPlay
 } from "@/components/Icons";
 
-/* ── Demo data ── */
-const DEMO_COACH = {
-  name: "Coach Anita",
-  specialty: "High Performance Strategy",
-  academy: "Trinity FC",
-  avatar: "CA",
+/* ── Default state for fallback ── */
+const FALLBACK_EVAL = {
+  date: "--",
+  overallScore: 0,
+  summary: "No sessions evaluated yet.",
+  strengths: [],
+  focusAreas: [],
+  radarData: SKILL_METRICS.map(m => ({ label: m.short, value: 0 })),
 };
 
-const LATEST_EVAL = {
-  date: "14-03-2026",
-  overallScore: 84,
-  summary: "Solid performance today. Showed great Vision and Composure. Needs to focus on Weak Foot and Stamina for the next session.",
-  strengths: ["Vision", "Composure"],
-  focusAreas: ["Weak Foot", "Stamina"],
-  radarData: [
-    { label: "PAC", value: 3.5 },
-    { label: "SHO", value: 4.0 },
-    { label: "PAS", value: 4.5 },
-    { label: "DRI", value: 3.8 },
-    { label: "DEF", value: 2.5 },
-    { label: "PHY", value: 3.2 },
-  ],
-};
-
-const DEMO_MESSAGES = [
-  { id: 1, from: "Coach Anita", text: "Great work on your passing drills yesterday. Keep reviewing the tape.", time: "2h ago", unread: true },
-  { id: 2, from: "Admin", text: "Your subscription renews next week.", time: "1d ago", unread: false },
-];
+const DEMO_MESSAGES: any[] = [];
 
 export default function PlayerDashboard() {
-  const [goals, setGoals] = useState([
-    { id: 1, text: "Improve weak foot passing", done: false },
-    { id: 2, text: "Complete 5 feedback sessions", done: true },
-    { id: 3, text: "Maintain 10-day streak", done: false },
-  ]);
+  const { user } = useAuth();
+  const router = useRouter();
+  
+  // Real Data State
+  const [profile, setProfile] = useState<any>(null);
+  const [coachProfile, setCoachProfile] = useState<any>(null);
+  const [latestEval, setLatestEval] = useState<any>(FALLBACK_EVAL);
+  const [stats, setStats] = useState({ sessions: 0, attendance: 0, evaluations: 0, streak: 0 });
+  const [loading, setLoading] = useState(true);
 
+  const [goals, setGoals] = useState<any[]>([]);
+  const [recentMessages, setRecentMessages] = useState<any[]>([]);
   const [showFAQ, setShowFAQ] = useState(false);
   const [inviteToast, setInviteToast] = useState(false);
+  const [feeStatus, setFeeStatus] = useState<"Paid" | "Pending" | null>(null);
+  const [nextSession, setNextSession] = useState<{ title: string; date: string; time: string; type: string; duration: number; daysUntil: number } | null>(null);
 
-  const toggleGoal = (id: number) => {
-    setGoals(goals.map(g => g.id === id ? { ...g, done: !g.done } : g));
+  useEffect(() => {
+    async function loadData() {
+      if (!user) return;
+      
+      // 1. Fetch Profile
+      const { data: pData } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+      if (pData) {
+        setProfile(pData);
+        // 2. Fetch Coach
+        if (pData.coach_id) {
+           const { data: cData } = await supabase.from("profiles").select("*").eq("id", pData.coach_id).single();
+           if (cData) setCoachProfile(cData);
+        }
+      }
+
+      // 3. Fetch Evaluations
+      const { data: evals } = await supabase.from("evaluations").select("*").eq("player_id", user.id).order("created_at", { ascending: false });
+      
+      if (evals && evals.length > 0) {
+        const latest = evals[0];
+        
+        let overall = 0;
+        const keys = Object.keys(latest.scores || {});
+        if (keys.length > 0) {
+           overall = Math.round(keys.reduce((sum: number, key: string) => sum + latest.scores[key], 0) / keys.length);
+        }
+
+        const formattedRadar = SKILL_METRICS.map(m => ({ 
+           label: m.short, 
+           value: ((latest.scores && latest.scores[m.key]) || 1) / 20 
+        }));
+
+        setLatestEval({
+          date: new Date(latest.created_at).toLocaleDateString(),
+          overallScore: overall,
+          summary: latest.summary || "No notes provided.",
+          strengths: latest.strengths || [],
+          focusAreas: latest.focus_areas || [],
+          radarData: formattedRadar,
+          badgeAwarded: latest.badge_awarded,
+        });
+
+        // Calculate simple stats
+        setStats({
+          sessions: evals.length, 
+          attendance: 100, // mock attendance %
+          evaluations: evals.length,
+          streak: evals.length > 0 ? 1 : 0
+        });
+      }
+
+      // 4. Fetch Goals from DB
+      const { data: goalsData } = await supabase
+        .from("goals")
+        .select("*")
+        .eq("player_id", user.id)
+        .in("status", ["not_started", "in_progress", "achieved"])
+        .order("created_at", { ascending: false })
+        .limit(5);
+      
+      if (goalsData) setGoals(goalsData);
+
+      // 5b. Fetch fees status for this player
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const { data: feeData } = await supabase
+        .from("fees")
+        .select("status")
+        .eq("player_id", user.id)
+        .eq("month", currentMonth)
+        .single();
+      if (feeData) setFeeStatus(feeData.status === "Paid" ? "Paid" : "Pending");
+      else setFeeStatus(null);
+
+      // 5a. Fetch next upcoming session from coach
+      if (pData?.coach_id) {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const { data: nextSess } = await supabase
+          .from("sessions")
+          .select("title, session_date, start_time, session_type, duration_mins")
+          .eq("coach_id", pData.coach_id)
+          .gte("session_date", todayStr)
+          .order("session_date", { ascending: true })
+          .limit(1)
+          .single();
+        if (nextSess) {
+          const sessDate = new Date(nextSess.session_date);
+          const todayDate = new Date(todayStr);
+          const diffDays = Math.ceil((sessDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+          setNextSession({
+            title: nextSess.title,
+            date: sessDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
+            time: nextSess.start_time?.slice(0, 5) || "TBD",
+            type: nextSess.session_type || "training",
+            duration: nextSess.duration_mins || 60,
+            daysUntil: diffDays,
+          });
+        }
+      }
+
+      // 5. Fetch recent messages
+      if (pData?.coach_id) {
+        const { data: msgData } = await supabase
+          .from("messages")
+          .select("*")
+          .or(`sender_id.eq.${pData.coach_id},receiver_id.eq.${pData.coach_id}`)
+          .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+          .order("created_at", { ascending: false })
+          .limit(3);
+
+        if (msgData) {
+          setRecentMessages(msgData.map(m => ({
+            id: m.id,
+            from: m.sender_id === user.id ? "You" : (coachProfile?.full_name || "Coach"),
+            text: m.content,
+            time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            unread: !m.read_status && m.sender_id !== user.id
+          })));
+        }
+      }
+
+      setLoading(false);
+    }
+    loadData();
+  }, [user]);
+
+  const toggleGoal = async (goalId: string) => {
+    const goal = goals.find(g => g.id === goalId);
+    if (!goal) return;
+    const newStatus = goal.status === "achieved" ? "in_progress" : "achieved";
+    await supabase.from("goals").update({ status: newStatus }).eq("id", goalId);
+    setGoals(goals.map(g => g.id === goalId ? { ...g, status: newStatus } : g));
   };
 
-  const handleInvite = () => {
+  const handleInvite = async () => {
+    try {
+      const inviteUrl = `${window.location.origin}/register?ref=${user?.id?.slice(0,8) || 'kickxpro'}`;
+      await navigator.clipboard.writeText(inviteUrl);
+    } catch { /* fallback: do nothing */ }
     setInviteToast(true);
     setTimeout(() => setInviteToast(false), 3000);
   };
@@ -72,7 +199,19 @@ export default function PlayerDashboard() {
     setSelectedTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
   };
 
-  const submitRating = () => {
+  const submitRating = async () => {
+    if (!user || !coachProfile || coachRating === 0) return;
+    try {
+      const { error } = await supabase.from("coach_ratings").upsert({
+        coach_id: coachProfile.id,
+        player_id: user.id,
+        rating: coachRating,
+        tags: selectedTags,
+      }, { onConflict: "coach_id,player_id" });
+      if (error) console.error("Rating save error:", error);
+    } catch (e) {
+      console.error("Failed to save rating:", e);
+    }
     setRatingSubmitted(true);
     setTimeout(() => {
       setRatingSubmitted(false);
@@ -82,54 +221,67 @@ export default function PlayerDashboard() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-12 pb-20">
+    <div className="max-w-6xl mx-auto space-y-8 pb-20">
+
+      {/* ── FEES REMINDER BANNER (orange, shown if pending) ── */}
+      {feeStatus === "Pending" && (
+        <div className="flex items-center gap-4 px-5 py-4 rounded-2xl border-2 animate-fade-up"
+          style={{ background: "rgba(249,115,22,0.06)", borderColor: "rgba(249,115,22,0.25)" }}>
+          <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-lg">💳</span>
+          </div>
+          <div className="flex-1">
+            <div className="font-bold text-orange-700 text-sm">Monthly Fee Pending</div>
+            <div className="text-orange-600 text-xs font-medium mt-0.5">Your fee payment for this month hasn't been received yet. Please contact your coach.</div>
+          </div>
+          <div className="px-3 py-1.5 rounded-xl text-xs font-bold flex-shrink-0" style={{ background: "rgba(249,115,22,0.12)", color: "#C2410C" }}>Pending</div>
+        </div>
+      )}
       
       {/* Header Profile Section */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-5">
            <div className="relative group cursor-pointer">
              <div className="w-20 h-20 md:w-24 md:h-24 rounded-[2rem] bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-3xl font-black text-white shadow-lg border-4 border-white overflow-hidden transition-transform group-hover:scale-105">
-               AM
+               {profile?.full_name ? profile.full_name.substring(0,2).toUpperCase() : "P"}
                {/* Hover Overlay for Upload */}
                <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                </div>
-               <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" title="Upload profile picture" />
              </div>
              <div className="absolute -bottom-2 -right-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded-lg border-2 border-white pointer-events-none">
-               ST
+               {profile?.position || "PLY"}
              </div>
            </div>
            
            <div>
              <h1 className="text-3xl md:text-4xl font-bold mb-1 text-slate-900" style={{ fontFamily: "var(--font-heading)", letterSpacing: "-0.02em" }}>
-               Arjun <span className="text-emerald-600">M.</span>
+               {profile?.full_name || "Academy Player"}
              </h1>
              <div className="flex items-center gap-3 text-xs md:text-sm font-bold text-slate-500 uppercase tracking-widest">
-                <span>AGE 18</span>
+                <span>AGE {profile?.age || "--"}</span>
                 <span>•</span>
-                <span>KickXPro Pilot</span>
+                <span>KickXPro Player</span>
              </div>
              
              {/* Earned Badges Row */}
-             <div className="flex gap-2 mt-3">
-               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg text-[10px] font-bold border border-amber-100">
-                 <IconAward size={12} /> Player of the Match
+             {latestEval.badgeAwarded && (
+               <div className="flex gap-2 mt-3">
+                 <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg text-[10px] font-bold border border-amber-100">
+                   <IconAward size={12} /> {latestEval.badgeAwarded}
+                 </div>
                </div>
-               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-[10px] font-bold border border-blue-100">
-                 <IconAward size={12} /> Playmaker
-               </div>
-             </div>
+             )}
            </div>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard value="12" label="Sessions" icon={<IconClipboard />} delay={0.1} />
-        <StatCard value="85%" label="Attendance" icon={<IconActivity />} accentColor="#3B82F6" delay={0.15} />
-        <StatCard value="8" label="Evaluations" icon={<IconTrendingUp />} accentColor="#10B981" delay={0.2} />
-        <StatCard value="3" label="Day Streak" icon={<IconFire />} accentColor="#F59E0B" delay={0.25} />
+        <StatCard value={stats.sessions.toString()} label="Sessions" icon={<IconClipboard />} delay={0.1} />
+        <StatCard value={`${stats.attendance}%`} label="Attendance" icon={<IconActivity />} accentColor="#3B82F6" delay={0.15} />
+        <StatCard value={stats.evaluations.toString()} label="Evaluations" icon={<IconTrendingUp />} accentColor="#10B981" delay={0.2} />
+        <StatCard value={stats.streak.toString()} label="Day Streak" icon={<IconFire />} accentColor="#F59E0B" delay={0.25} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -146,23 +298,19 @@ export default function PlayerDashboard() {
             </div>
             
             <div className="relative z-10 flex justify-center -mt-4">
-              <RadarChart data={LATEST_EVAL.radarData} size={300} />
+              <RadarChart data={latestEval.radarData} size={300} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <StreakIndicator 
-              streak={3} 
+             <StreakIndicator 
+              streak={stats.streak} 
               records={[
-                { date: "15-03", present: true },
-                { date: "14-03", present: true },
-                { date: "13-03", present: true },
-                { date: "12-03", present: false },
-                { date: "11-03", present: true },
+                { date: "Current", present: true },
               ]} 
-              maxDots={14} 
+              maxDots={7} 
             />
-            <RankBadge avgScore={3.8} />
+            <RankBadge avgScore={latestEval.overallScore > 0 ? latestEval.overallScore / 20 : 0} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -192,16 +340,31 @@ export default function PlayerDashboard() {
             </div>
 
             {/* Next Session */}
-            <div className="card-static p-5 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl relative overflow-hidden group">
+            <div className="card-static p-5 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl relative overflow-hidden group cursor-pointer" onClick={() => router.push('/player/schedule')}>
                <div className="absolute -top-10 -right-10 w-24 h-24 bg-emerald-500/20 rounded-full blur-2xl group-hover:bg-emerald-500/30 transition-colors pointer-events-none" />
                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5 relative z-10">
                  <IconPlay size={14} color="#10B981" /> Next Session
                </h3>
                <div className="relative z-10">
-                 <div className="text-2xl font-black font-heading mb-1 tracking-tight">Wed, 5:30 PM</div>
-                 <div className="text-xs font-bold text-emerald-400 uppercase tracking-widest border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 rounded inline-block">
-                   Tactical Focus
-                 </div>
+                 {nextSession ? (
+                   <>
+                     <div className="text-2xl font-black font-heading mb-1 tracking-tight">{nextSession.date}, {nextSession.time}</div>
+                     <div className="flex items-center gap-2">
+                       <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 rounded inline-block">
+                         {nextSession.type.replace('_', ' ')}
+                       </span>
+                       <span className="text-[10px] font-bold text-slate-400">{nextSession.duration} min</span>
+                     </div>
+                     {nextSession.daysUntil === 0 && <div className="mt-2 text-xs font-black text-emerald-400 animate-pulse">🔴 TODAY</div>}
+                     {nextSession.daysUntil === 1 && <div className="mt-2 text-xs font-bold text-amber-400">Tomorrow</div>}
+                     {nextSession.daysUntil > 1 && <div className="mt-2 text-xs font-bold text-slate-500">In {nextSession.daysUntil} days</div>}
+                   </>
+                 ) : (
+                   <>
+                     <div className="text-lg font-bold text-slate-500 mb-1">No Upcoming Session</div>
+                     <div className="text-xs text-slate-600">Check with your coach for the schedule.</div>
+                   </>
+                 )}
                </div>
             </div>
           </div>
@@ -235,59 +398,74 @@ export default function PlayerDashboard() {
                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
                  <IconUser size={16} color="#3B82F6" /> Your Coach
                </h3>
-               <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{DEMO_COACH.academy}</span>
+               <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">Academy Team</span>
             </div>
 
             <div className="flex items-center gap-4 mb-6 relative z-10">
               <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 text-white flex items-center justify-center text-lg font-black shadow-md border-2 border-white">
-                {DEMO_COACH.avatar}
+                {coachProfile?.full_name ? coachProfile.full_name.substring(0,2).toUpperCase() : "C"}
               </div>
               <div>
-                <div className="font-bold text-slate-900 tracking-tight text-lg">{DEMO_COACH.name}</div>
-                <div className="text-xs font-medium text-slate-500">{DEMO_COACH.specialty}</div>
+                <div className="font-bold text-slate-900 tracking-tight text-lg">{coachProfile ? coachProfile.full_name : "Unassigned"}</div>
+                <div className="text-xs font-medium text-slate-500">{coachProfile ? "Head Coach" : "Contact academy"}</div>
               </div>
             </div>
 
             {/* NEW: Messages Inbox */}
             <div className="pt-4 border-t border-slate-100 relative z-10">
                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center justify-between">
-                 Direct Messages
-                 <span className="bg-amber-100 text-amber-700 w-5 h-5 rounded-full flex items-center justify-center text-[10px]">1</span>
+                 <span className="flex items-center gap-2">
+                   Direct Messages
+                   {recentMessages.filter(m => m.unread).length > 0 && (
+                     <span className="bg-amber-100 text-amber-700 w-5 h-5 rounded-full flex items-center justify-center text-[10px]">{recentMessages.filter(m => m.unread).length}</span>
+                   )}
+                 </span>
+                 <button onClick={() => router.push("/player/messages")} className="text-[10px] font-bold text-emerald-600 hover:text-emerald-800 transition-colors">View All →</button>
                </h4>
                <div className="space-y-2">
-                 {DEMO_MESSAGES.map(msg => (
-                   <div key={msg.id} className={`p-3 rounded-xl border ${msg.unread ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-transparent'} transition-colors cursor-pointer hover:border-blue-200`}>
+                 {recentMessages.length === 0 ? (
+                   <p className="text-xs text-slate-400 py-2">No messages yet.</p>
+                 ) : recentMessages.map(msg => (
+                   <div key={msg.id} onClick={() => router.push("/player/messages")} className={`p-3 rounded-xl border ${msg.unread ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-transparent'} transition-colors cursor-pointer hover:border-blue-200`}>
                      <div className="flex justify-between items-center mb-1">
                        <span className={`text-xs font-bold ${msg.unread ? 'text-blue-900' : 'text-slate-700'}`}>{msg.from}</span>
                        <span className="text-[10px] text-slate-400 font-medium">{msg.time}</span>
                      </div>
-                     <p className={`text-xs leading-relaxed ${msg.unread ? 'text-blue-800' : 'text-slate-500'}`}>{msg.text}</p>
+                     <p className={`text-xs leading-relaxed ${msg.unread ? 'text-blue-800' : 'text-slate-500'} truncate`}>{msg.text}</p>
                    </div>
                  ))}
                </div>
             </div>
           </div>
 
-          {/* Goals (Interactive) */}
+          {/* Goals (Real from DB) */}
           <div className="card-static p-6">
             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
               <IconTarget size={16} color="#10B981" /> Active Goals
             </h3>
             <div className="space-y-3">
-              {goals.map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => toggleGoal(g.id)}
-                  className="goal-btn w-full flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors group"
-                >
-                  <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${g.done ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'border-slate-300 bg-white group-hover:border-emerald-400'}`}>
-                    {g.done && <IconCheck size={12} />}
-                  </div>
-                  <span className={`text-sm font-medium transition-colors ${g.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
-                    {g.text}
-                  </span>
-                </button>
-              ))}
+              {goals.length === 0 ? (
+                <p className="text-xs text-slate-400 py-2">No goals assigned yet. Your coach will set goals after evaluations.</p>
+              ) : goals.map((g) => {
+                const isDone = g.status === "achieved";
+                return (
+                  <button
+                    key={g.id}
+                    onClick={() => toggleGoal(g.id)}
+                    className="goal-btn w-full flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors group"
+                  >
+                    <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${isDone ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'border-slate-300 bg-white group-hover:border-emerald-400'}`}>
+                      {isDone && <IconCheck size={12} />}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <span className={`text-sm font-medium transition-colors block ${isDone ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                        {g.title}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">{g.category}</span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -307,7 +485,7 @@ export default function PlayerDashboard() {
                   <IconStar size={16} color="#F59E0B" /> Rate Your Coach
                 </h3>
                 <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-                  How was your last session with {DEMO_COACH.name.split(" ")[0]}? Your feedback builds their profile.
+                  How was your last session with {coachProfile?.full_name ? coachProfile.full_name.split(' ')[0] : 'your coach'}? Your feedback builds their profile.
                 </p>
                 
                 <div className="flex gap-2 mb-6 justify-center bg-slate-50 py-3 rounded-xl border border-slate-100">

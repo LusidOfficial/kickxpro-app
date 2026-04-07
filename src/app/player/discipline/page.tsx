@@ -5,26 +5,15 @@
    ────────────────────────────────────────────── */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 import {
   IconCheck, IconTarget, IconActivity, IconFire,
   IconTrendingUp, IconAward, IconPlus, IconZap, IconClipboard
 } from "@/components/Icons";
 
-/* ── Mock Discipline Data ── */
-const MOCK_EFFORT_HISTORY = [
-  { date: "Mar 15", effort: 9, onTime: true },
-  { date: "Mar 14", effort: 8, onTime: true },
-  { date: "Mar 13", effort: 7, onTime: true },
-  { date: "Mar 12", effort: 6, onTime: false },
-  { date: "Mar 11", effort: 9, onTime: true },
-  { date: "Mar 10", effort: 8, onTime: true },
-  { date: "Mar 9", effort: 5, onTime: false },
-  { date: "Mar 8", effort: 8, onTime: true },
-  { date: "Mar 7", effort: 9, onTime: true },
-  { date: "Mar 6", effort: 7, onTime: true },
-];
-
+/* ── Fallback / Mock Discipline Data ── */
 const MOCK_BADGES = [
   { id: "b1", name: "10-Day Streak", icon: "🔥", earned: true, date: "Mar 14" },
   { id: "b2", name: "Always On Time", icon: "⏰", earned: true, date: "Mar 10" },
@@ -33,6 +22,9 @@ const MOCK_BADGES = [
 ];
 
 export default function PlayerDisciplinePage() {
+  const { user } = useAuth();
+  const [effortHistory, setEffortHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [goals, setGoals] = useState([
     { id: 1, title: "Arrive 10 mins early for 2 weeks", target: 14, current: 9, status: "Active" as const },
     { id: 2, title: "Hit effort score 8+ in 5 sessions", target: 5, current: 4, status: "Active" as const },
@@ -44,9 +36,59 @@ export default function PlayerDisciplinePage() {
   const [journalText, setJournalText] = useState("");
   const [journalSaved, setJournalSaved] = useState(false);
 
-  const currentStreak = 3;
-  const avgEffort = (MOCK_EFFORT_HISTORY.reduce((sum, d) => sum + d.effort, 0) / MOCK_EFFORT_HISTORY.length).toFixed(1);
-  const punctualityRate = Math.round((MOCK_EFFORT_HISTORY.filter(d => d.onTime).length / MOCK_EFFORT_HISTORY.length) * 100);
+  useEffect(() => {
+    async function fetchAttendance() {
+      if (!user) return;
+      try {
+        // 1. Get player's coach_id
+        const { data: pData } = await supabase.from('profiles').select('coach_id').eq('id', user.id).single();
+        if (!pData || !pData.coach_id) {
+           setLoading(false);
+           return;
+        }
+        
+        // 2. Fetch past sessions
+        const { data: sessions } = await supabase
+           .from('sessions')
+           .select('session_date, attendance')
+           .eq('coach_id', pData.coach_id)
+           .order('session_date', { ascending: false })
+           .limit(10);
+           
+        if (sessions) {
+           const history = sessions.map((s: any) => {
+             const status = s.attendance?.[user.id] || "Absent";
+             // Map status to effort & onTime dummy for now
+             let effort = 5;
+             let onTime = false;
+             if (status === "Present") { effort = 8; onTime = true; }
+             if (status === "Late") { effort = 6; onTime = false; }
+             
+             return {
+               date: new Date(s.session_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+               effort,
+               onTime,
+               status
+             };
+           }).filter((h: any) => h.status !== "Absent");
+           
+           setEffortHistory(history);
+        }
+      } catch (err) {
+         console.warn(err);
+      }
+      setLoading(false);
+    }
+    fetchAttendance();
+  }, [user]);
+
+  const currentStreak = effortHistory.length;
+  let avgE = 0;
+  if (effortHistory.length > 0) {
+     avgE = effortHistory.reduce((sum, d) => sum + d.effort, 0) / effortHistory.length;
+  }
+  const punctRate = effortHistory.length > 0 ? Math.round((effortHistory.filter(d => d.onTime).length / effortHistory.length) * 100) : 0;
+
 
   const addGoal = () => {
     if (!newGoalText.trim()) return;
@@ -95,7 +137,7 @@ export default function PlayerDisciplinePage() {
             <div className="flex items-center justify-center gap-1 mb-2">
               <IconZap size={20} color="#10B981" />
             </div>
-            <div className="text-3xl font-black text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>{avgEffort}</div>
+            <div className="text-3xl font-black text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>{avgE.toFixed(1)}</div>
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Avg Effort</div>
           </div>
         </div>
@@ -106,7 +148,7 @@ export default function PlayerDisciplinePage() {
             <div className="flex items-center justify-center gap-1 mb-2">
               <IconActivity size={20} color="#3B82F6" />
             </div>
-            <div className="text-3xl font-black text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>{punctualityRate}%</div>
+            <div className="text-3xl font-black text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>{punctRate}%</div>
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">On Time</div>
           </div>
         </div>
@@ -122,7 +164,11 @@ export default function PlayerDisciplinePage() {
               <IconTrendingUp size={16} color="#3B82F6" /> Effort History
             </h3>
             <div className="space-y-3">
-              {MOCK_EFFORT_HISTORY.map((day, idx) => (
+              {loading ? (
+                <div className="text-[10px] text-slate-400">Loading history...</div>
+              ) : effortHistory.length === 0 ? (
+                <div className="text-[10px] text-slate-400">No attendance data yet. Show up to training!</div>
+              ) : effortHistory.map((day, idx) => (
                 <div key={idx} className="flex items-center gap-3">
                   <span className="text-[10px] font-bold text-slate-400 w-12 text-right">{day.date}</span>
                   <div className="flex-1 h-6 bg-slate-100 rounded-full overflow-hidden relative">
@@ -136,7 +182,7 @@ export default function PlayerDisciplinePage() {
                       <span className="text-[10px] font-black text-white">{day.effort}/10</span>
                     </div>
                   </div>
-                  <span className={`text-[10px] font-bold w-10 text-center ${day.onTime ? "text-emerald-500" : "text-red-400"}`}>
+                  <span className={`text-[10px] font-bold w-10 text-center ${day.onTime ? "text-emerald-500" : "text-amber-500"}`}>
                     {day.onTime ? "✓" : "Late"}
                   </span>
                 </div>

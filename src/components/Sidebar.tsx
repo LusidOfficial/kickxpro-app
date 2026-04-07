@@ -8,7 +8,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  IconGrid, IconPlusCircle, IconUsers, IconClipboard, IconTimer, IconMessageSquare
+  IconGrid, IconPlusCircle, IconUsers, IconClipboard, IconTimer, IconMessageSquare, IconWallet,
+  IconShield, IconActivity, IconTarget, IconTrendingUp, IconCalendar, IconAward, IconBarChart,
+  IconFire, IconStar, IconZap
 } from "@/components/Icons";
 
 interface SidebarItem {
@@ -31,6 +33,17 @@ function getIcon(name: string, color: string) {
     case "clipboard": return <IconClipboard {...props} />;
     case "timer": return <IconTimer {...props} />;
     case "message-square": return <IconMessageSquare {...props} />;
+    case "wallet": return <IconWallet {...props} />;
+    case "shield": return <IconShield {...props} />;
+    case "activity": return <IconActivity {...props} />;
+    case "target": return <IconTarget {...props} />;
+    case "trending-up": return <IconTrendingUp {...props} />;
+    case "calendar": return <IconCalendar {...props} />;
+    case "award": return <IconAward {...props} />;
+    case "bar-chart": return <IconBarChart {...props} />;
+    case "fire": return <IconFire {...props} />;
+    case "star": return <IconStar {...props} />;
+    case "zap": return <IconZap {...props} />;
     default: return <IconGrid {...props} />;
   }
 }

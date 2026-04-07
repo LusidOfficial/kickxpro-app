@@ -12,24 +12,25 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SESSION_TYPES } from "@/lib/constants";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 import {
   IconTimer, IconGrid, IconPlay, IconPause, IconSquare,
   IconClipboard, IconPlus, IconCheck, IconTarget, IconZap,
   IconActivity, IconShield, IconUsers
 } from "@/components/Icons";
 
-/* ── Drill Library (seed data — will transition to DB) ── */
+/* ── Drill Library (seed data) ── */
 const SEED_DRILLS = [
-  { id: "d1", title: "La Masia Rondo 4v2", category: "Passing", duration_mins: 10, difficulty: "Beginner", description: "Quick one-touch passing in a tight circle. Defensive triggers." },
-  { id: "d2", title: "Ajax Positional Play", category: "Tactical", duration_mins: 20, difficulty: "Advanced", description: "Full-team shape drill focusing on 'Totaalvoetbal' spatial awareness." },
-  { id: "d3", title: "Bayer High Press", category: "Tactical", duration_mins: 15, difficulty: "Advanced", description: "Gegenpressing triggers inspired by Xabi Alonso's Leverkusen." },
-  { id: "d4", title: "Real Madrid Counter", category: "Match Prep", duration_mins: 15, difficulty: "Intermediate", description: "Rapid transition from deep defense to a 3-man fast break." },
-  { id: "d5", title: "Man City Box Control", category: "Passing", duration_mins: 15, difficulty: "Intermediate", description: "Overloading the midfield box to retain possession under pressure." },
-  { id: "d6", title: "Bayern Wing Overloads", category: "Tactical", duration_mins: 20, difficulty: "Advanced", description: "Creating 2v1 situations on the flanks for cut-back finishes." },
-  { id: "d7", title: "Dortmund Wall Pass", category: "Shooting", duration_mins: 10, difficulty: "Beginner", description: "Quick 1-2 combination play outside the box ending in a shot." },
-  { id: "d8", title: "Bielsa Murderball", category: "Fitness", duration_mins: 12, difficulty: "Advanced", description: "Unrelenting, non-stop 11v11 scrimmage to build extreme stamina." },
-  { id: "d9", title: "1v1 Keeper Isolation", category: "Goalkeeping", duration_mins: 10, difficulty: "Intermediate", description: "Attacker vs Goalkeeper simulating breakaway reactions." },
-  { id: "d10", title: "Set-Piece Mastery", category: "Match Prep", duration_mins: 15, difficulty: "Beginner", description: "Practicing near-post flicks and far-post blocking routines." },
+  { id: "d1", title: "La Masia Rondo 4v2", category: "Passing", duration_mins: 10, difficulty: "Beginner", description: "Quick one-touch passing in a tight circle." },
+  { id: "d2", title: "Ajax Positional Play", category: "Tactical", duration_mins: 20, difficulty: "Advanced", description: "Full-team shape drill." },
+  { id: "d3", title: "Bayer High Press", category: "Tactical", duration_mins: 15, difficulty: "Advanced", description: "Gegenpressing triggers." },
+  { id: "d4", title: "Real Madrid Counter", category: "Match Prep", duration_mins: 15, difficulty: "Intermediate", description: "Rapid transition from deep defense." },
+  { id: "d5", title: "Man City Box Control", category: "Passing", duration_mins: 15, difficulty: "Intermediate", description: "Overloading the midfield box." },
+  { id: "d6", title: "Bayern Wing Overloads", category: "Tactical", duration_mins: 20, difficulty: "Advanced", description: "Creating 2v1 situations on the flanks." },
+  { id: "d7", title: "Dortmund Wall Pass", category: "Shooting", duration_mins: 10, difficulty: "Beginner", description: "Quick 1-2 combination play." },
+  { id: "d8", title: "Bielsa Murderball", category: "Fitness", duration_mins: 12, difficulty: "Advanced", description: "Unrelenting 11v11 scrimmage." },
+  { id: "d9", title: "1v1 Keeper Isolation", category: "Goalkeeping", duration_mins: 10, difficulty: "Intermediate", description: "Attacker vs Goalkeeper simulation." },
+  { id: "d10", title: "Set-Piece Mastery", category: "Match Prep", duration_mins: 15, difficulty: "Beginner", description: "Practicing near-post flicks." },
 ];
 
 const CATEGORY_ICONS: Record<string, JSX.Element> = {
@@ -42,18 +43,14 @@ const CATEGORY_ICONS: Record<string, JSX.Element> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  Passing: "#3B82F6",
-  Shooting: "#EF4444",
-  Fitness: "#F59E0B",
-  Tactical: "#8B5CF6",
-  Goalkeeping: "#06B6D4",
-  "Match Prep": "#10B981",
+  Passing: "#3B82F6", Shooting: "#EF4444", Fitness: "#F59E0B", Tactical: "#8B5CF6", Goalkeeping: "#06B6D4", "Match Prep": "#10B981",
 };
 
 type Drill = typeof SEED_DRILLS[number];
 
 export default function SessionsHubPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"new" | "drills" | "history">("new");
 
   /* ── New Session State ── */
@@ -63,6 +60,10 @@ export default function SessionsHubPage() {
   const [startTime, setStartTime] = useState("09:00");
   const [duration, setDuration] = useState(60);
   const [notes, setNotes] = useState("");
+  const [attendance, setAttendance] = useState<Record<string, string>>({});
+  
+  /* ── Roster State ── */
+  const [myPlayers, setMyPlayers] = useState<{id: string, name: string, num: number}[]>([]);
 
   /* ── Timer State ── */
   const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -89,37 +90,54 @@ export default function SessionsHubPage() {
     return () => clearInterval(interval);
   }, [isTimerRunning, timeLeft]);
 
-  /* ── Fetch drill library from DB (fall back to seed) ── */
+  /* ── Fetch Drill Library & Roster ── */
   useEffect(() => {
-    async function fetchDrills() {
+    if (!user) return;
+    
+    async function initData() {
+      // 1. Fetch drills
       try {
-        const { data, error } = await supabase.from('drills').select('*');
-        if (error) throw error;
+        const { data } = await supabase.from('drills').select('*');
         if (data && data.length > 0) {
           setDrillLibrary(data.map(d => ({ ...d, id: d.id })));
         }
       } catch { /* use seed */ }
+      
+      // 2. Fetch players for attendance list
+      try {
+         const { data, error } = await supabase
+           .from('profiles')
+           .select('id, full_name, role')
+           .eq('role', 'player')
+           .eq('coach_id', user!.id);
+           
+         if (!error && data) {
+           setMyPlayers(data.map((p, idx) => ({ id: p.id, name: p.full_name || "Unknown", num: idx + 20 })));
+         }
+      } catch {}
     }
-    fetchDrills();
-  }, []);
+    initData();
+  }, [user]);
 
   /* ── Fetch history from DB ── */
   useEffect(() => {
+    if (!user) return;
     async function fetchHistory() {
       setHistoryLoading(true);
       try {
         const { data, error } = await supabase
           .from('sessions')
           .select('*')
+          .eq('coach_id', user!.id)
           .order('session_date', { ascending: false })
           .limit(20);
         if (error) throw error;
-        if (data && data.length > 0) setSessionHistory(data);
-      } catch { /* silently fail */ }
+        if (data) setSessionHistory(data);
+      } catch { /* fail silently */ }
       setHistoryLoading(false);
     }
     if (activeTab === "history") fetchHistory();
-  }, [activeTab]);
+  }, [activeTab, user]);
 
   /* ── Drill Helpers ── */
   const toggleDrill = (drill: Drill) => {
@@ -134,12 +152,38 @@ export default function SessionsHubPage() {
   const categories = ["All", ...Array.from(new Set(drillLibrary.map(d => d.category)))];
   const filteredDrills = drillFilter === "All" ? drillLibrary : drillLibrary.filter(d => d.category === drillFilter);
 
-  /* ── Timer Helpers ── */
+  /* ── Timer Helpers & Session Action ── */
   const toggleTimer = () => setIsTimerRunning(!isTimerRunning);
-  const endSession = () => {
+  
+  const endSession = async () => {
     setIsTimerRunning(false);
+    
+    if (!user) return;
+    try {
+      // Store session data including attendance into DB
+      const { data, error } = await supabase.from("sessions").insert({
+        coach_id: user.id,
+        title: title || `${sessionType} Session`,
+        session_type: sessionType,
+        session_date: date,
+        start_time: startTime + ":00", // DB needs HH:MM:SS format 
+        duration_mins: duration,
+        notes: notes,
+        attendance: attendance
+      }).select("id").single();
+      
+      if (!error && data) {
+         router.push(`/coach/evaluate?session_id=${data.id}&date=${date}`);
+         return;
+      } else {
+         console.error(error);
+      }
+    } catch(err) { console.error(err); }
+    
+    // Fallback if insertion fails
     router.push(`/coach/evaluate?session=${sessionType}&date=${date}`);
   };
+
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -299,6 +343,49 @@ export default function SessionsHubPage() {
                   </div>
                 </div>
               )}
+
+              {/* Attendance Marking (Step 5) */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest">5. Mark Attendance</label>
+                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                    {Object.keys(attendance).length} / {myPlayers.length} Marked
+                  </span>
+                </div>
+                
+                <div className="card-static p-4 max-h-[300px] overflow-y-auto custom-scrollbar space-y-2">
+                  {myPlayers.length === 0 ? (
+                    <div className="text-center text-xs text-slate-400 py-4">No players in squad.</div>
+                  ) : myPlayers.map((p: any) => {
+                    const status = attendance[p.id] || null;
+                    return (
+                      <div key={p.id} className="flex items-center justify-between p-2 rounded-xl bg-slate-50/50 border border-transparent hover:border-slate-200 transition-all">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold ${status ? 'bg-white shadow-sm' : 'bg-slate-100 text-slate-400'}`}>
+                            {p.num}
+                          </div>
+                          <span className="text-sm font-bold text-slate-700">{p.name}</span>
+                        </div>
+                        
+                        <div className="flex bg-white/50 p-1 rounded-lg border border-slate-100">
+                          {(['Present', 'Late', 'Absent'] as const).map(s => (
+                            <button
+                              key={s}
+                              onClick={() => setAttendance(prev => ({ ...prev, [p.id]: s }))}
+                              className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all
+                                ${status === s 
+                                  ? (s === 'Present' ? 'bg-emerald-500 text-white shadow-md' : s === 'Late' ? 'bg-amber-500 text-white shadow-md' : 'bg-red-500 text-white shadow-md') 
+                                  : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
 
               <div>
                 <label className="block text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Session Notes (Optional)</label>

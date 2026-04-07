@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-
-/* ──────────────────────────────────────────────
-   ROOT LAYOUT — KickXPro MVP
-   Google Fonts loaded via <link> for simplicity
-   with Tailwind v4 (no next/font needed).
-   ────────────────────────────────────────────── */
+import { AuthProvider } from "@/lib/auth-context";
 
 export const metadata: Metadata = {
   title: "KickXPro — Sports Performance Platform",
@@ -39,7 +34,11 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="noise-overlay">{children}</body>
+      <body className="noise-overlay">
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   );
 }

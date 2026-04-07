@@ -40,13 +40,14 @@ export const FOCUS_TRAITS = [
   "Defensive Awareness", "Crossing",
 ] as const;
 
-/** Session types */
+/** Session types with brand colors */
 export const SESSION_TYPES = [
-  { key: "training", label: "Training", color: "#60A5FA" },
-  { key: "match", label: "Match Day", color: "#00C853" },
+  { key: "training", label: "Training", color: "#10B981" },
+  { key: "tactical", label: "Tactical", color: "#8B5CF6" },
+  { key: "match_day", label: "Match Day", color: "#EF4444" },
   { key: "fitness", label: "Fitness", color: "#F59E0B" },
-  { key: "tactical", label: "Tactical", color: "#A78BFA" },
-] as const;
+  { key: "recovery", label: "Recovery", color: "#06B6D4" },
+];
 
 /** Duration presets in minutes */
 export const DURATION_PRESETS = [30, 45, 60, 90, 120] as const;
@@ -104,15 +105,40 @@ export function getRankTier(avgScore: number) {
 export const NAV_ITEMS = {
   coach: [
     { href: "/coach", label: "Dashboard", icon: "grid" },
+    { href: "/coach/students", label: "My Students", icon: "users" },
+    { href: "/coach/attendance", label: "Attendance", icon: "clipboard" },
+    { href: "/coach/evaluate", label: "Evaluate", icon: "target" },
+    { href: "/coach/fees", label: "Fees", icon: "wallet" },
+    { href: "/coach/messages", label: "Messages", icon: "message-square" },
+    { href: "/coach/events", label: "Events", icon: "calendar" },
+    { href: "/coach/ai-assistant", label: "AI Assistant", icon: "zap" },
+  ],
+  coachClassic: [
+    { href: "/coach", label: "Dashboard", icon: "grid" },
+    { href: "/coach/squad", label: "Squad", icon: "shield" },
     { href: "/coach/sessions", label: "Sessions", icon: "timer" },
     { href: "/coach/roster", label: "Roster", icon: "users" },
     { href: "/coach/evaluate", label: "Evaluate", icon: "clipboard" },
-    { href: "/coach/match-iq", label: "Match IQ", icon: "target" },
+    { href: "/coach/fees", label: "Fees", icon: "wallet" },
+    { href: "/coach/messages", label: "Messages", icon: "message-square" },
+    { href: "/coach/events", label: "Events", icon: "calendar" },
+    { href: "/coach/ai-assistant", label: "AI Assistant", icon: "zap" },
   ],
   player: [
     { href: "/player", label: "Dashboard", icon: "grid" },
-    { href: "/player/match-iq", label: "Match IQ", icon: "target" },
+    { href: "/player/progress", label: "My Progress", icon: "trending-up" },
+    { href: "/player/schedule", label: "Schedule", icon: "calendar" },
+    { href: "/player/leaderboard", label: "Leaderboard", icon: "award" },
+    { href: "/player/report-card", label: "Report Card", icon: "bar-chart" },
+    { href: "/player/messages", label: "Messages", icon: "message-square" },
+    { href: "/player/events", label: "Events", icon: "calendar" },
+    { href: "/player/ai-assistant", label: "AI Assistant", icon: "zap" },
+  ],
+  playerClassic: [
+    { href: "/player", label: "Dashboard", icon: "grid" },
     { href: "/player/discipline", label: "Discipline", icon: "activity" },
+    { href: "/player/match-iq", label: "Match IQ", icon: "target" },
+    { href: "/player/messages", label: "Messages", icon: "message-square" },
   ],
   admin: [
     { href: "/admin", label: "Dashboard", icon: "grid" },

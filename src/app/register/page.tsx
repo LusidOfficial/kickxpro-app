@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import Navbar from "@/components/Navbar";
 import { IconUser, IconClipboard, IconChevronRight, IconCheck } from "@/components/Icons";
 
@@ -16,36 +17,49 @@ export default function RegisterPage() {
   const [role, setRole] = useState<Role | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [academy, setAcademy] = useState("");
   const [extra, setExtra] = useState(""); // position for player, specialty for coach
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!role || !name || !email) return;
+    if (!role || !name || !email || !password) return;
 
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    const uid = `${role === "player" ? "P" : "C"}_${Date.now()}`;
+    setError("");
+    setLoading(true);
 
     try {
-      await fetch(`${apiBase}/admin/users`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          uid,
-          name,
-          role: role === "player" ? "P" : "C",
-          academy,
-        }),
+      const { data, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
       });
-    } catch {
-      /* demo mode — continue anyway */
-    }
 
-    setSubmitted(true);
-    setTimeout(() => {
-      router.push(role === "player" ? "/player" : "/coach");
-    }, 2000);
+      if (authError) throw authError;
+
+      if (data.user) {
+        // Insert into profiles
+        const { error: profileError } = await supabase.from("profiles").upsert({
+          id: data.user.id,
+          full_name: name,
+          role: role,
+          position: role === "player" ? extra : null,
+          academy_id: academy || null,
+        });
+
+        if (profileError) throw profileError;
+      }
+
+      setSubmitted(true);
+      setTimeout(() => {
+        router.push(role === "player" ? "/player" : "/coach");
+      }, 2000);
+    } catch (err: any) {
+      setError(err.message || "Something went wrong during registration.");
+      setLoading(false);
+    }
   }
 
   if (submitted) {
@@ -175,6 +189,12 @@ export default function RegisterPage() {
                 </button>
               </div>
 
+              {error && (
+                <div className="p-3 bg-red-100/10 border border-red-500/20 text-red-500 text-xs rounded-xl text-center font-semibold">
+                  {error}
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: "var(--color-text-dim)" }}>
                   Full Name *
@@ -204,6 +224,20 @@ export default function RegisterPage() {
 
               <div>
                 <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: "var(--color-text-dim)" }}>
+                  Password *
+                </label>
+                <input
+                  className="input"
+                  type="password"
+                  placeholder="Create a strong password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: "var(--color-text-dim)" }}>
                   Academy
                 </label>
                 <input
@@ -226,10 +260,11 @@ export default function RegisterPage() {
                 />
               </div>
 
-              <button type="submit" className="btn-primary w-full mt-6 py-3 text-sm flex items-center justify-center gap-2">
-                Create Account
-                <IconChevronRight size={16} />
+              <button disabled={loading} type="submit" className="btn-primary w-full mt-6 py-3 text-sm flex items-center justify-center gap-2">
+                {loading ? "Creating Account..." : "Create Account"}
+                {!loading && <IconChevronRight size={16} />}
               </button>
+
             </form>
           )}
         </div>

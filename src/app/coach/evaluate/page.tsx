@@ -5,17 +5,20 @@
    ────────────────────────────────────────────── */
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { STRENGTH_TRAITS, FOCUS_TRAITS, SKILL_METRICS } from "@/lib/constants";
 import RadarChart from "@/components/RadarChart";
 import { IconClipboard, IconCheck, IconAward } from "@/components/Icons";
+import { supabase } from "@/lib/supabase";
+import { IconTarget } from "@/components/Icons";
+import { useAuth } from "@/lib/auth-context";
 
-const DEMO_PLAYERS = [
-  { id: "P001", num: 10, name: "Arjun M." },
-  { id: "P002", num: 8, name: "Neha S." },
-  { id: "P003", num: 4, name: "Rahul J." },
-  { id: "P004", num: 9, name: "Sanjay V." },
-];
+interface Player {
+  id: string;
+  num: number | string;
+  name: string;
+}
 
 interface EvalData {
   scores: Record<string, number>;
@@ -23,6 +26,8 @@ interface EvalData {
   focusAreas: string[];
   summary: string;
   badgeAwarded: string | null;
+  goalTitle: string;
+  goalCategory: string;
   saved: boolean;
 }
 
@@ -32,6 +37,8 @@ const DEFAULT_EVAL: EvalData = {
   focusAreas: [],
   summary: "",
   badgeAwarded: null,
+  goalTitle: "",
+  goalCategory: "technical",
   saved: false,
 };
 
@@ -42,10 +49,35 @@ const INCENTIVE_BADGES = [
   { id: "workhorse", label: "Workhorse", color: "#8B5CF6", bg: "rgba(139,92,246,0.1)" },
 ];
 
-export default function EvaluatePage() {
-  const [activePlayerId, setActivePlayerId] = useState(DEMO_PLAYERS[0].id);
+function EvaluateContent() {
+  const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const sessionId = searchParams?.get("session_id");
+
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [activePlayerId, setActivePlayerId] = useState("");
   const [evaluations, setEvaluations] = useState<Record<string, EvalData>>({});
   const [showToast, setShowToast] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchPlayers() {
+      if (!user) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("role", "player")
+        .eq("coach_id", user.id);
+
+      if (data && data.length > 0) {
+        const pList = data.map((d, i) => ({ id: d.id, name: d.full_name, num: i + 20 }));
+        setPlayers(pList);
+        setActivePlayerId(pList[0].id);
+      }
+      setLoading(false);
+    }
+    fetchPlayers();
+  }, [user]);
 
   // Initialize or get current player data
   const currentData = evaluations[activePlayerId] || DEFAULT_EVAL;
@@ -86,16 +118,77 @@ export default function EvaluatePage() {
     updateCurrentData({ summary: `Solid performance today. ${s}${f}${b}` });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!user || !activePlayerId) return;
+
+    // Save evaluation to Supabase
+    try {
+       let evalSessionId = sessionId;
+
+       // If no session linked, create a quick evaluation session
+       if (!evalSessionId) {
+         const { data: quickSession } = await supabase.from("sessions").insert({
+           coach_id: user.id,
+           title: "Quick Evaluation",
+           session_type: "training",
+           session_date: new Date().toISOString().split("T")[0],
+           start_time: new Date().toTimeString().split(" ")[0],
+           duration_mins: 0,
+           notes: "Auto-created from quick evaluation"
+         }).select("id").single();
+         if (quickSession) evalSessionId = quickSession.id;
+       }
+
+       if (evalSessionId) {
+         const { error: evalError } = await supabase.from("evaluations").upsert({
+           session_id: evalSessionId,
+           player_id: activePlayerId,
+           coach_id: user.id,
+           scores: currentData.scores,
+           strengths: currentData.strengths,
+           focus_areas: currentData.focusAreas,
+           badge_awarded: currentData.badgeAwarded,
+           summary: currentData.summary
+         }, { onConflict: "session_id,player_id" });
+         if (evalError) {
+           console.error("Eval save error:", evalError);
+           // Try insert if upsert fails (table may not have unique constraint yet)
+           await supabase.from("evaluations").insert({
+             session_id: evalSessionId,
+             player_id: activePlayerId,
+             coach_id: user.id,
+             scores: currentData.scores,
+             strengths: currentData.strengths,
+             focus_areas: currentData.focusAreas,
+             badge_awarded: currentData.badgeAwarded,
+             summary: currentData.summary
+           });
+         }
+       }
+
+       // Save goal if provided
+       if (currentData.goalTitle.trim()) {
+         await supabase.from("goals").insert({
+           player_id: activePlayerId,
+           coach_id: user.id,
+           category: currentData.goalCategory,
+           title: currentData.goalTitle.trim(),
+           status: "not_started",
+         });
+       }
+    } catch (err) {
+       console.error(err);
+    }
+
     updateCurrentData({ saved: true });
     setShowToast(true);
     
     setTimeout(() => {
       setShowToast(false);
       // Auto move to next unsaved player
-      const currentIndex = DEMO_PLAYERS.findIndex(p => p.id === activePlayerId);
-      if (currentIndex < DEMO_PLAYERS.length - 1) {
-        setActivePlayerId(DEMO_PLAYERS[currentIndex + 1].id);
+      const currentIndex = players.findIndex(p => p.id === activePlayerId);
+      if (currentIndex < players.length - 1) {
+        setActivePlayerId(players[currentIndex + 1].id);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }, 2000);
@@ -109,6 +202,9 @@ export default function EvaluatePage() {
     Object.values(currentData.scores).reduce((a, b) => a + b, 0) / Math.max(1, Object.keys(currentData.scores).length)
   );
 
+  if (loading) return <div className="p-10 text-center text-slate-500 font-medium">Loading roster...</div>;
+  if (!players.length) return <div className="p-10 text-center text-slate-500 font-medium border border-slate-200 bg-white rounded-xl mx-5 mt-10">No players assigned to your squad yet. Add players to evaluate them.</div>;
+
   return (
     <div className="max-w-5xl mx-auto pb-32 relative px-4 xl:px-0">
       
@@ -118,7 +214,7 @@ export default function EvaluatePage() {
           <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
             <IconCheck size={14} color="white" />
           </div>
-          Evaluation Saved for {DEMO_PLAYERS.find(p => p.id === activePlayerId)?.name}!
+          Evaluation Saved for {players.find(p => p.id === activePlayerId)?.name}!
         </div>
       )}
 
@@ -126,7 +222,9 @@ export default function EvaluatePage() {
       <div className="mb-6 md:mb-8 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2 text-slate-900" style={{ fontFamily: "var(--font-heading)", letterSpacing: "-0.02em" }}>Player Evaluation</h1>
-          <p className="text-slate-500 font-medium text-xs md:text-sm">Follow the steps below to complete the session report.</p>
+          <p className="text-slate-500 font-medium text-xs md:text-sm">
+            {sessionId ? "Rate your players after the session." : "Rate your players. A session will be created automatically."}
+          </p>
         </div>
         
         {/* Overall Score Badge */}
@@ -141,7 +239,7 @@ export default function EvaluatePage() {
       {/* Step 1: Select Player */}
       <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">1. Select Player</h3>
       <div className="flex overflow-x-auto gap-2 md:gap-3 pb-4 mb-6 custom-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
-        {DEMO_PLAYERS.map((player) => {
+        {players.map((player) => {
           const isSaved = evaluations[player.id]?.saved;
           return (
             <button
@@ -285,8 +383,41 @@ export default function EvaluatePage() {
                 </div>
               </div>
 
-            </div>
-          </div>
+           </div>
+
+           {/* Step 5: Assign Goal */}
+           <div className="pt-2">
+             <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+               <IconTarget size={14} color="#10B981" /> 5. Assign Goal (Optional)
+             </h3>
+             <div className="card-static p-4 md:p-5 space-y-4 border-2 border-dashed border-emerald-100">
+               <div className="flex flex-wrap gap-2">
+                 {["technical", "tactical", "physical", "discipline"].map(cat => (
+                   <button
+                     key={cat}
+                     onClick={() => updateCurrentData({ goalCategory: cat })}
+                     className="px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all capitalize"
+                     style={{
+                       background: currentData.goalCategory === cat ? "rgba(16,185,129,0.1)" : "#FFF",
+                       color: currentData.goalCategory === cat ? "#059669" : "var(--color-text-muted)",
+                       borderColor: currentData.goalCategory === cat ? "#10B981" : "var(--color-border)",
+                     }}
+                   >
+                     {cat}
+                   </button>
+                 ))}
+               </div>
+               <input
+                 type="text"
+                 className="input text-sm"
+                 placeholder="e.g. Improve weak foot passing accuracy"
+                 value={currentData.goalTitle}
+                 onChange={e => updateCurrentData({ goalTitle: e.target.value })}
+               />
+             </div>
+           </div>
+
+         </div>
 
           <div className="pt-2">
             <div className="flex items-center justify-between mb-3 md:mb-4">
@@ -323,10 +454,18 @@ export default function EvaluatePage() {
           className="flex items-center gap-2 md:gap-3 px-6 md:px-8 py-3 md:py-4 rounded-full bg-slate-900 hover:bg-black text-white text-sm md:text-base font-bold tracking-wide transition-all shadow-2xl active:scale-95"
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          <IconClipboard size={18} color="white" /> Save {DEMO_PLAYERS.find(p => p.id === activePlayerId)?.name.split(" ")[0]}'s Report
+          <IconClipboard size={18} color="white" /> Save {players.find(p => p.id === activePlayerId)?.name.split(" ")[0]}'s Report
         </button>
       </div>
 
     </div>
+  );
+}
+
+export default function EvaluatePage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center">Loading evaluation...</div>}>
+      <EvaluateContent />
+    </Suspense>
   );
 }

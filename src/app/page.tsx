@@ -25,6 +25,13 @@ const PORTALS = [
     iconComponent: <IconClipboard size={26} color="#60A5FA" />,
     accent: "#60A5FA",
   },
+  {
+    role: "Parent",
+    href: "/parent",
+    description: "Monitor your child's progress, attendance and reports",
+    iconComponent: <IconShield size={26} color="#8B5CF6" />,
+    accent: "#8B5CF6",
+  },
 ];
 
 export default function LandingPage() {
@@ -68,7 +75,7 @@ export default function LandingPage() {
         </div>
 
         {/* Portal Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-3xl mb-8">
           {PORTALS.map((portal, i) => (
             <Link
               key={portal.role}

@@ -5,6 +5,7 @@
 
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import { NAV_ITEMS } from "@/lib/constants";
 
 export const metadata = {
@@ -18,14 +19,16 @@ export default function PlayerLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar role="player" />
-      <div className="flex flex-1">
-        <Sidebar items={[...NAV_ITEMS.player]} accentColor="#00C853" />
-        <main className="flex-1 p-6 md:p-8 relative z-10 overflow-y-auto">
-          {children}
-        </main>
+    <ProtectedRoute role="player">
+      <div className="min-h-screen flex flex-col">
+        <Navbar role="player" />
+        <div className="flex flex-1">
+          <Sidebar items={[...NAV_ITEMS.player]} accentColor="#00C853" />
+          <main className="flex-1 p-6 md:p-8 relative z-10 overflow-y-auto">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }
