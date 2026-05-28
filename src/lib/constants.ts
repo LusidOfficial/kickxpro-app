@@ -69,37 +69,15 @@ export type AttendanceStatusType =
   (typeof ATTENDANCE_STATUS)[keyof typeof ATTENDANCE_STATUS];
 
 /** Player rank tiers */
-export const RANK_TIERS = [
-  {
-    key: "bronze",
-    label: "Bronze",
-    minScore: 0,
-    color: "#CD7F32",
-    bgColor: "rgba(205, 127, 50, 0.1)",
-    borderColor: "rgba(205, 127, 50, 0.25)",
-  },
-  {
-    key: "silver",
-    label: "Silver",
-    minScore: 50,
-    color: "#C0C0C0",
-    bgColor: "rgba(192, 192, 192, 0.1)",
-    borderColor: "rgba(192, 192, 192, 0.25)",
-  },
-  {
-    key: "gold",
-    label: "Gold",
-    minScore: 75,
-    color: "#FFD700",
-    bgColor: "rgba(255, 215, 0, 0.1)",
-    borderColor: "rgba(255, 215, 0, 0.25)",
-  },
-] as const;
+export const RANK_TIERS = {
+  Beginner: { color: "#10B981", bgColor: "rgba(16, 185, 129, 0.1)", borderColor: "rgba(16, 185, 129, 0.25)" },
+  Intermediate: { color: "#3B82F6", bgColor: "rgba(59, 130, 246, 0.1)", borderColor: "rgba(59, 130, 246, 0.25)" },
+  Advanced: { color: "#8B5CF6", bgColor: "rgba(139, 92, 246, 0.1)", borderColor: "rgba(139, 92, 246, 0.25)" },
+  Elite: { color: "#F59E0B", bgColor: "rgba(245, 158, 11, 0.1)", borderColor: "rgba(245, 158, 11, 0.25)" },
+  Pro: { color: "#EF4444", bgColor: "rgba(239, 68, 68, 0.1)", borderColor: "rgba(239, 68, 68, 0.25)" },
+} as const;
 
-export function getRankTier(avgScore: number) {
-  const sorted = [...RANK_TIERS].sort((a, b) => b.minScore - a.minScore);
-  return sorted.find((tier) => avgScore >= tier.minScore) || RANK_TIERS[0];
-}
+export type PlayerTier = keyof typeof RANK_TIERS;
 
 /** Navigation items for each portal */
 export const NAV_ITEMS = {
@@ -108,7 +86,6 @@ export const NAV_ITEMS = {
     { href: "/coach/students", label: "My Students", icon: "users" },
     { href: "/coach/attendance", label: "Attendance", icon: "clipboard" },
     { href: "/coach/evaluate", label: "Evaluate", icon: "target" },
-    { href: "/coach/fees", label: "Fees", icon: "wallet" },
     { href: "/coach/messages", label: "Messages", icon: "message-square" },
     { href: "/coach/events", label: "Events", icon: "calendar" },
     { href: "/coach/ai-assistant", label: "AI Assistant", icon: "zap" },
@@ -119,7 +96,6 @@ export const NAV_ITEMS = {
     { href: "/coach/sessions", label: "Sessions", icon: "timer" },
     { href: "/coach/roster", label: "Roster", icon: "users" },
     { href: "/coach/evaluate", label: "Evaluate", icon: "clipboard" },
-    { href: "/coach/fees", label: "Fees", icon: "wallet" },
     { href: "/coach/messages", label: "Messages", icon: "message-square" },
     { href: "/coach/events", label: "Events", icon: "calendar" },
     { href: "/coach/ai-assistant", label: "AI Assistant", icon: "zap" },

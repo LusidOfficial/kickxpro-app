@@ -271,3 +271,18 @@ export const IconWallet = makeIcon(
     <path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z" />
   </>
 );
+
+export const IconX = makeIcon(
+  <>
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </>
+);
+
+export const IconEdit = makeIcon(
+  <>
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </>
+);
+

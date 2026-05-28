@@ -159,7 +159,7 @@ export default function RosterPage() {
                    color: isSelected ? formColor : "#fff"
                  }}
                >
-                 {p.num}
+                 {p.pos || p.name.substring(0, 2).toUpperCase()}
                </button>
              );
           })}
@@ -172,9 +172,9 @@ export default function RosterPage() {
               onClick={() => setSelectedPlayer(player.id)}
               className={`card-static p-4 flex items-center gap-4 cursor-pointer transition-all ${selectedPlayer === player.id ? "ring-2 ring-emerald-500" : "hover:shadow-md"}`}
             >
-              {/* Avatar / Number */}
-              <div className="w-12 h-12 rounded-full bg-slate-100 border-2 border-slate-200 flex items-center justify-center text-lg font-black text-slate-400">
-                {player.num}
+              {/* Avatar / Position */}
+              <div className="w-12 h-12 rounded-full bg-slate-100 border-2 border-slate-200 flex items-center justify-center text-[10px] md:text-xs font-black text-slate-500 uppercase">
+                {player.pos || player.name.substring(0, 2).toUpperCase()}
               </div>
 
               {/* Info */}
@@ -187,8 +187,8 @@ export default function RosterPage() {
 
               {/* Ovr Score */}
               <div className="flex flex-col items-end gap-1">
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 font-black text-sm flex items-center justify-center">
-                  {player.ovr}
+                <div className="w-10 h-8 rounded-lg bg-emerald-50 text-emerald-600 font-black text-sm flex items-center justify-center">
+                  {(player.ovr / 10).toFixed(1)}
                 </div>
                 {player.trend !== "0" && (
                   <span className={`text-[9px] font-bold ${player.trend.startsWith("+") ? "text-emerald-500" : "text-red-500"}`}>
@@ -214,14 +214,14 @@ export default function RosterPage() {
                Close
              </button>
              
-             <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-black mb-4 border-2 border-white/30">
-                {activePlayer.num}
+             <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-xl font-black mb-4 border-2 border-white/30 uppercase tracking-widest">
+                {activePlayer.pos || activePlayer.name.substring(0, 2).toUpperCase()}
              </div>
              <h2 className="text-2xl font-bold font-heading mb-1">{activePlayer.name}</h2>
              <div className="flex gap-4 text-xs font-medium text-emerald-400">
                 <span>Position: {activePlayer.pos}</span>
                 <span>Age: {activePlayer.age}</span>
-                <span>Overall: {activePlayer.ovr}</span>
+                <span>Overall: {(activePlayer.ovr / 10).toFixed(1)}</span>
              </div>
           </div>
 

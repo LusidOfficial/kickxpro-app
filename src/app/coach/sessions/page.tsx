@@ -16,7 +16,7 @@ import { useAuth } from "@/lib/auth-context";
 import {
   IconTimer, IconGrid, IconPlay, IconPause, IconSquare,
   IconClipboard, IconPlus, IconCheck, IconTarget, IconZap,
-  IconActivity, IconShield, IconUsers
+  IconActivity, IconShield, IconUsers, IconX, IconEdit, IconSave
 } from "@/components/Icons";
 
 /* ── Drill Library (seed data) ── */
@@ -46,7 +46,15 @@ const CATEGORY_COLORS: Record<string, string> = {
   Passing: "#3B82F6", Shooting: "#EF4444", Fitness: "#F59E0B", Tactical: "#8B5CF6", Goalkeeping: "#06B6D4", "Match Prep": "#10B981",
 };
 
-type Drill = typeof SEED_DRILLS[number];
+type Drill = {
+  id: string;
+  title: string;
+  category: string;
+  duration_mins: number;
+  difficulty: string;
+  description: string;
+  coach_id?: string;
+};
 
 export default function SessionsHubPage() {
   const router = useRouter();
@@ -63,7 +71,7 @@ export default function SessionsHubPage() {
   const [attendance, setAttendance] = useState<Record<string, string>>({});
   
   /* ── Roster State ── */
-  const [myPlayers, setMyPlayers] = useState<{id: string, name: string, num: number}[]>([]);
+  const [myPlayers, setMyPlayers] = useState<{id: string, name: string, pos: string}[]>([]);
 
   /* ── Timer State ── */
   const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -77,6 +85,77 @@ export default function SessionsHubPage() {
   /* ── History ── */
   const [sessionHistory, setSessionHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  /* ── Drill Modal & Editing ── */
+  const [showDrillModal, setShowDrillModal] = useState(false);
+  const [editingDrill, setEditingDrill] = useState<Drill | null>(null);
+  const [isEditingMode, setIsEditingMode] = useState(false);
+
+  const handleDrillClick = (drill: Drill) => {
+    setEditingDrill(drill);
+    setIsEditingMode(false);
+    setShowDrillModal(true);
+  };
+
+  const handleCreateDrill = () => {
+    setEditingDrill({
+      id: `new_${Date.now()}`,
+      title: "",
+      category: "Passing",
+      duration_mins: 15,
+      difficulty: "Beginner",
+      description: "",
+      coach_id: user?.id
+    });
+    setIsEditingMode(true);
+    setShowDrillModal(true);
+  };
+
+  const handleSaveDrill = async () => {
+    if (!editingDrill) return;
+    
+    const isNew = editingDrill.id.startsWith("new_");
+    let drillToSave = { ...editingDrill };
+    let finalId = drillToSave.id;
+    
+    if (!isNew && !drillToSave.coach_id && isEditingMode) {
+       // editing a template creates a new copy
+       finalId = `custom_${Date.now()}`;
+       drillToSave.coach_id = user?.id;
+    }
+
+    try {
+      if (user) {
+         const isInsert = finalId.startsWith("new_") || finalId.startsWith("custom_");
+         const payload = {
+           title: drillToSave.title,
+           category: drillToSave.category,
+           duration_mins: drillToSave.duration_mins,
+           difficulty: drillToSave.difficulty,
+           description: drillToSave.description,
+           coach_id: user.id
+         };
+
+         if (isInsert) {
+           const { data } = await supabase.from('drills').insert(payload).select().single();
+           if (data) finalId = data.id;
+         } else {
+           await supabase.from('drills').update(payload).eq('id', finalId);
+         }
+      }
+    } catch (err) { console.error(err); }
+
+    drillToSave.id = finalId;
+
+    setDrillLibrary(prev => {
+      const exists = prev.find(d => d.id === drillToSave.id);
+      if (exists) return prev.map(d => d.id === drillToSave.id ? drillToSave : d);
+      return [drillToSave, ...prev];
+    });
+
+    setIsEditingMode(false);
+    setEditingDrill(drillToSave);
+  };
 
   /* ── Timer Effects ── */
   useEffect(() => { setTimeLeft(duration * 60); }, [duration]);
@@ -107,12 +186,16 @@ export default function SessionsHubPage() {
       try {
          const { data, error } = await supabase
            .from('profiles')
-           .select('id, full_name, role')
+           .select('id, full_name, role, position')
            .eq('role', 'player')
            .eq('coach_id', user!.id);
            
          if (!error && data) {
-           setMyPlayers(data.map((p, idx) => ({ id: p.id, name: p.full_name || "Unknown", num: idx + 20 })));
+           setMyPlayers(data.map((p) => ({
+             id: p.id,
+             name: p.full_name || "Unknown",
+             pos: p.position || p.full_name?.substring(0, 2).toUpperCase() || "PL"
+           })));
          }
       } catch {}
     }
@@ -362,7 +445,7 @@ export default function SessionsHubPage() {
                       <div key={p.id} className="flex items-center justify-between p-2 rounded-xl bg-slate-50/50 border border-transparent hover:border-slate-200 transition-all">
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold ${status ? 'bg-white shadow-sm' : 'bg-slate-100 text-slate-400'}`}>
-                            {p.num}
+                            {p.pos}
                           </div>
                           <span className="text-sm font-bold text-slate-700">{p.name}</span>
                         </div>
@@ -474,22 +557,30 @@ export default function SessionsHubPage() {
       {/* ═══ TAB 2: DRILL LIBRARY ═══ */}
       {activeTab === "drills" && (
         <div className="space-y-6">
-          {/* Category Filters */}
-          <div className="flex flex-wrap gap-2">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setDrillFilter(cat)}
-                className="px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-[10px] md:text-xs font-bold border transition-all"
-                style={{
-                  background: drillFilter === cat ? "var(--color-text)" : "#FFF",
-                  color: drillFilter === cat ? "#FFF" : "var(--color-text-muted)",
-                  borderColor: drillFilter === cat ? "var(--color-text)" : "var(--color-border)",
-                }}
-              >
-                {cat}
-              </button>
-            ))}
+          {/* Action Bar & Category Filters */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-wrap gap-2">
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setDrillFilter(cat)}
+                  className="px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-[10px] md:text-xs font-bold border transition-all"
+                  style={{
+                    background: drillFilter === cat ? "var(--color-text)" : "#FFF",
+                    color: drillFilter === cat ? "#FFF" : "var(--color-text-muted)",
+                    borderColor: drillFilter === cat ? "var(--color-text)" : "var(--color-border)",
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleCreateDrill}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors shadow-sm w-max"
+            >
+              <IconPlus size={16} /> Create Card
+            </button>
           </div>
 
           {/* Drill Cards Grid */}
@@ -500,7 +591,7 @@ export default function SessionsHubPage() {
               return (
                 <div
                   key={drill.id}
-                  onClick={() => toggleDrill(drill)}
+                  onClick={() => handleDrillClick(drill)}
                   className={`card-static p-5 cursor-pointer transition-all relative overflow-hidden group
                     ${selected ? "ring-2 ring-emerald-500 bg-emerald-50/50" : "hover:shadow-md"}`}
                 >
@@ -532,8 +623,8 @@ export default function SessionsHubPage() {
                     <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
                       <IconTimer size={14} /> {drill.duration_mins} min
                     </span>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${selected ? "text-emerald-600" : "text-slate-300 group-hover:text-slate-500"} transition-colors`}>
-                      {selected ? "Added ✓" : "Tap to Add"}
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${selected ? "text-emerald-600" : "text-slate-400 group-hover:text-emerald-500"} transition-colors`}>
+                      {selected ? "Selected ✓" : "View Details"}
                     </span>
                   </div>
                 </div>
@@ -607,6 +698,167 @@ export default function SessionsHubPage() {
               </div>
             ))
           )}
+        </div>
+      )}
+    </div>
+
+      {/* ═══ DRILL MODAL ═══ */}
+      {showDrillModal && editingDrill && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-fade-up">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <h3 className="font-bold text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>
+                {isEditingMode ? (editingDrill.id.startsWith("new_") ? "Create Drill Card" : "Edit Drill Card") : "Drill Details"}
+              </h3>
+              <button onClick={() => setShowDrillModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <IconX size={20} />
+              </button>
+            </div>
+            
+            {/* Body */}
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5">
+              {isEditingMode ? (
+                // EDIT MODE
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Title</label>
+                    <input 
+                      type="text" 
+                      className="input w-full" 
+                      value={editingDrill.title} 
+                      onChange={e => setEditingDrill({...editingDrill, title: e.target.value})} 
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Category</label>
+                      <select 
+                        className="input w-full" 
+                        value={editingDrill.category} 
+                        onChange={e => setEditingDrill({...editingDrill, category: e.target.value})}
+                      >
+                        {["Passing", "Shooting", "Fitness", "Tactical", "Goalkeeping", "Match Prep"].map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Difficulty</label>
+                      <select 
+                        className="input w-full" 
+                        value={editingDrill.difficulty} 
+                        onChange={e => setEditingDrill({...editingDrill, difficulty: e.target.value})}
+                      >
+                        <option value="Beginner">Beginner</option>
+                        <option value="Intermediate">Intermediate</option>
+                        <option value="Advanced">Advanced</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Duration (Mins)</label>
+                    <input 
+                      type="number" 
+                      className="input w-full" 
+                      value={editingDrill.duration_mins} 
+                      onChange={e => setEditingDrill({...editingDrill, duration_mins: parseInt(e.target.value) || 0})} 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Description</label>
+                    <textarea 
+                      className="textarea w-full min-h-[100px]" 
+                      value={editingDrill.description} 
+                      onChange={e => setEditingDrill({...editingDrill, description: e.target.value})} 
+                    />
+                  </div>
+                  {!editingDrill.coach_id && !editingDrill.id.startsWith("new_") && (
+                    <div className="p-3 bg-amber-50 text-amber-700 rounded-xl text-xs font-medium border border-amber-200">
+                      You are editing a template. Saving will create a new custom card in your library.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // VIEW MODE
+                <div className="space-y-5">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold uppercase">
+                        {editingDrill.category}
+                      </span>
+                      <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold uppercase">
+                        {editingDrill.difficulty}
+                      </span>
+                      {!editingDrill.coach_id && (
+                        <span className="px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-100 rounded-lg text-[10px] font-bold uppercase">
+                          Template
+                        </span>
+                      )}
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900">{editingDrill.title}</h2>
+                    <div className="flex items-center gap-1 text-xs font-bold text-slate-400 mt-1">
+                      <IconTimer size={14} /> {editingDrill.duration_mins} mins
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 mb-1">Description</h4>
+                    <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      {editingDrill.description || "No description provided."}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
+              {isEditingMode ? (
+                <>
+                  <button 
+                    onClick={() => {
+                      if (editingDrill.id.startsWith("new_")) setShowDrillModal(false);
+                      else setIsEditingMode(false);
+                    }} 
+                    className="px-4 py-2 text-slate-500 font-bold text-sm hover:bg-slate-200 rounded-xl transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleSaveDrill}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500 text-white font-bold text-sm rounded-xl hover:bg-emerald-600 shadow-sm transition-colors"
+                  >
+                    <IconSave size={16} /> Save Card
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => setIsEditingMode(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-50 shadow-sm transition-colors"
+                  >
+                    <IconEdit size={16} /> Edit
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      toggleDrill(editingDrill);
+                      setShowDrillModal(false);
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 font-bold text-sm rounded-xl shadow-sm transition-colors ${
+                      isDrillSelected(editingDrill.id)
+                        ? "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+                        : "bg-slate-900 text-white hover:bg-black"
+                    }`}
+                  >
+                    {isDrillSelected(editingDrill.id) ? (
+                      <>Remove from Session</>
+                    ) : (
+                      <><IconPlus size={16} /> Add to Session</>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

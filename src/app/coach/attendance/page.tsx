@@ -57,6 +57,7 @@ function AttendanceContent() {
   const searchParams = useSearchParams();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [upcomingSessionRSVPs, setUpcomingSessionRSVPs] = useState<{ title: string; count: number } | null>(null);
 
   // Flow step
   const [step, setStep] = useState<FlowStep>("idle");
@@ -75,6 +76,7 @@ function AttendanceContent() {
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState(0); // seconds
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   // History
   const [pastSessions, setPastSessions] = useState<PastSession[]>([]);
@@ -118,12 +120,27 @@ function AttendanceContent() {
       .eq("coach_id", user.id).order("session_date", { ascending: false }).limit(3);
     if (sData) {
       const withCounts = await Promise.all(sData.map(async s => {
-        const { count: pCount } = await supabase.from("attendance_logs").select("id", { count: "exact" }).eq("session_id", s.id).in("status", ["Present", "Late"]);
-        const { count: tCount } = await supabase.from("attendance_logs").select("id", { count: "exact" }).eq("session_id", s.id);
+        const { count: pCount } = await supabase.from("attendance_logs").select("id", { count: "exact", head: true }).eq("session_id", s.id).in("status", ["Present", "Late"]);
+        const { count: tCount } = await supabase.from("attendance_logs").select("id", { count: "exact", head: true }).eq("session_id", s.id);
         return { ...s, presentCount: pCount || 0, totalCount: tCount || 0 };
       }));
       setPastSessions(withCounts);
     }
+
+    // Fetch upcoming session RSVPs
+    const todayStr = new Date().toISOString().split("T")[0];
+    const { data: nextSession } = await supabase
+      .from("sessions").select("id, title")
+      .eq("coach_id", user.id).gte("session_date", todayStr)
+      .order("session_date", { ascending: true }).limit(1).single();
+
+    if (nextSession) {
+      const { count } = await supabase.from("session_responses")
+        .select("*", { count: "exact", head: true })
+        .eq("session_id", nextSession.id).eq("response", "going");
+      setUpcomingSessionRSVPs({ title: nextSession.title, count: count || 0 });
+    }
+
     setLoading(false);
   }
 
@@ -153,13 +170,29 @@ function AttendanceContent() {
     setStep("attendance");
   }
 
-  function startRunning() {
+  async function startRunning() {
     const now = new Date();
     const typeLabel = SESSION_TYPES.find(t => t.key === sessionType)?.label || "Training";
-    setSessionTitle(`${typeLabel} — ${now.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}`);
+    const title = `${typeLabel} — ${now.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}`;
+    setSessionTitle(title);
     setSessionStartTime(now);
     setElapsed(0);
     setStep("running");
+
+    if (user) {
+      const { data, error } = await supabase.from("sessions").insert({
+        coach_id: user.id,
+        title: title,
+        session_type: sessionType,
+        session_date: now.toISOString().split("T")[0],
+        start_time: now.toTimeString().split(" ")[0],
+        duration_mins: 0,
+        notes: "Live Session",
+      }).select("id").single();
+      if (!error && data) {
+        setActiveSessionId(data.id);
+      }
+    }
   }
 
   function tapStudent(studentId: string) {
@@ -174,26 +207,41 @@ function AttendanceContent() {
     setSaving(true);
     try {
       const drillNotes = selectedDrills.length > 0 ? `Drills: ${selectedDrills.map(d => d.title).join(", ")}` : "";
-      const { data: sessionData, error } = await supabase.from("sessions").insert({
-        coach_id: user.id,
-        title: sessionTitle,
-        session_type: sessionType,
-        session_date: sessionStartTime.toISOString().split("T")[0],
-        start_time: sessionStartTime.toTimeString().split(" ")[0],
-        duration_mins: Math.max(Math.round(elapsed / 60), 1),
-        notes: `${presentCount}P / ${lateCount}L / ${absentCount}A. ${drillNotes}`,
-      }).select("id").single();
+      const finalDuration = Math.max(Math.round(elapsed / 60), 1);
+      const notes = `${presentCount}P / ${lateCount}L / ${absentCount}A. ${drillNotes}`;
 
-      if (error) throw error;
+      let sessionId = activeSessionId;
 
-      if (sessionData) {
+      if (sessionId) {
+        // Update existing live session
+        await supabase.from("sessions").update({
+          duration_mins: finalDuration,
+          notes: notes,
+        }).eq("id", sessionId);
+      } else {
+        // Fallback insert if startRunning failed to set activeSessionId
+        const { data, error } = await supabase.from("sessions").insert({
+          coach_id: user.id,
+          title: sessionTitle,
+          session_type: sessionType,
+          session_date: sessionStartTime.toISOString().split("T")[0],
+          start_time: sessionStartTime.toTimeString().split(" ")[0],
+          duration_mins: finalDuration,
+          notes: notes,
+        }).select("id").single();
+        if (error) throw error;
+        if (data) sessionId = data.id;
+      }
+
+      if (sessionId) {
         const logs = Object.values(attendance).filter(a => a.status !== null).map(a => ({
-          session_id: sessionData.id, player_id: a.playerId,
+          session_id: sessionId, player_id: a.playerId,
           status: a.status!, marked_by: user.id, marked_at: a.markedAt || new Date().toISOString(),
         }));
         if (logs.length > 0) await supabase.from("attendance_logs").insert(logs);
       }
 
+      setActiveSessionId(null);
       setStep("idle");
       setSessionStartTime(null);
       setAttendance({});
@@ -201,10 +249,10 @@ function AttendanceContent() {
       showToastMsg("Session saved! ✅");
       loadData();
 
-      if (sessionData) {
+      if (sessionId) {
         setTimeout(() => {
           if (confirm("Session saved! Evaluate players now?")) {
-            router.push(`/coach/evaluate?session_id=${sessionData.id}`);
+            router.push(`/coach/evaluate?session_id=${sessionId}`);
           }
         }, 500);
       }
@@ -280,10 +328,18 @@ function AttendanceContent() {
           </p>
         </div>
         {step === "idle" && (
-          <button onClick={() => setStep("setup")} disabled={students.length === 0}
-            className="btn-primary flex items-center gap-2 self-start disabled:opacity-50 text-sm py-3 px-6 shadow-lg">
-            <IconPlay size={16} /> Start Today's Session
-          </button>
+          <div className="flex flex-col items-end gap-2 self-start">
+            <button onClick={() => setStep("setup")} disabled={students.length === 0}
+              className="btn-primary flex items-center gap-2 text-sm py-3 px-6 shadow-lg disabled:opacity-50">
+              <IconPlay size={16} /> Start Today's Session
+            </button>
+            {upcomingSessionRSVPs && (
+              <div className="text-[10px] font-bold text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border flex items-center gap-1.5">
+                <IconCheck size={12} color="#10B981" /> 
+                {upcomingSessionRSVPs.count} {upcomingSessionRSVPs.count === 1 ? 'player has' : 'players have'} RSVP'd "Going" to next session
+              </div>
+            )}
+          </div>
         )}
       </div>
 

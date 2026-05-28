@@ -201,13 +201,13 @@ export default function LeaderboardPage() {
               <div className="text-xl font-bold text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>{playerOfWeek.name}</div>
               <div className="flex items-center gap-3 mt-1 text-xs font-bold text-slate-500">
                 <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded">{playerOfWeek.position}</span>
-                <span>Score: {playerOfWeek.overallScore}</span>
+                <span>Score: {(playerOfWeek.overallScore / 10).toFixed(1)}/10</span>
                 <span>•</span>
                 <span>{playerOfWeek.attendanceRate}% attendance</span>
               </div>
             </div>
             <div className="flex-shrink-0 text-center">
-              <div className="text-4xl font-black text-amber-600" style={{ fontFamily: "var(--font-heading)" }}>{playerOfWeek.overallScore}</div>
+              <div className="text-4xl font-black text-amber-600" style={{ fontFamily: "var(--font-heading)" }}>{(playerOfWeek.overallScore / 10).toFixed(1)}</div>
               <div className="text-[10px] font-bold text-amber-500 uppercase">Rating</div>
             </div>
           </div>
@@ -302,7 +302,7 @@ export default function LeaderboardPage() {
                       entry.improvement > 0 ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"
                     }`}>
                       <div className={`text-xs font-black ${entry.improvement > 0 ? "text-emerald-600" : "text-red-500"}`}>
-                        {entry.improvement > 0 ? "+" : ""}{entry.improvement}
+                        {entry.improvement > 0 ? "+" : ""}{(entry.improvement / 10).toFixed(1)}
                       </div>
                       <div className="text-[8px] font-bold text-slate-400 uppercase">TREND</div>
                     </div>
@@ -315,7 +315,7 @@ export default function LeaderboardPage() {
                   entry.overallScore >= 60 ? "bg-blue-50 text-blue-600" :
                   "bg-slate-50 text-slate-500"
                 }`}>
-                  {entry.overallScore}
+                  {(entry.overallScore / 10).toFixed(1)}
                 </div>
               </div>
             );

@@ -21,6 +21,7 @@ interface SessionItem {
   session_type: string;
   notes: string | null;
   coach_name: string;
+  response?: string;
 }
 
 const SESSION_COLORS: Record<string, { color: string; label: string; emoji: string }> = {
@@ -75,13 +76,43 @@ export default function PlayerSchedulePage() {
         .eq("id", profile.coach_id)
         .single();
 
+      // Get responses
+      const { data: responses } = await supabase
+        .from("session_responses")
+        .select("session_id, response")
+        .eq("player_id", user.id);
+        
+      const responseMap = (responses || []).reduce((acc: any, r: any) => {
+        acc[r.session_id] = r.response;
+        return acc;
+      }, {});
+
       setSessions(sessionsData.map(s => ({
         ...s,
         coach_name: coach?.full_name || "Coach",
+        response: responseMap[s.id] || null,
       })));
     }
 
     setLoading(false);
+  }
+
+  async function handleRSVP(sessionId: string, response: "going" | "not_going") {
+    if (!user) return;
+    
+    // Optimistic update
+    setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, response } : s));
+    
+    const { error } = await supabase.from("session_responses").upsert({
+      session_id: sessionId,
+      player_id: user.id,
+      response
+    }, { onConflict: "session_id,player_id" });
+    
+    if (error) {
+       console.error("RSVP error", error);
+       // Revert on error (could be added)
+    }
   }
 
   const now = new Date();
@@ -161,6 +192,14 @@ export default function PlayerSchedulePage() {
                 <span>⏰ {formatTime(nextSession.start_time)}</span>
                 <span>⏱️ {nextSession.duration_mins} min</span>
               </div>
+              {nextSession.notes && (
+                <div className="mt-3 pt-3 border-t border-emerald-200/50">
+                  <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Curriculum</div>
+                  <p className="text-xs font-medium text-slate-700 leading-relaxed line-clamp-2">
+                    {nextSession.notes}
+                  </p>
+                </div>
+              )}
             </div>
             <div className="flex-shrink-0 text-center">
               {getDaysUntil(nextSession.session_date) === 0 ? (
@@ -249,10 +288,31 @@ export default function PlayerSchedulePage() {
                           <span>•</span>
                           <span>{session.duration_mins} min</span>
                         </div>
+                        {session.notes && (
+                          <div className="mt-2 text-xs text-slate-500 line-clamp-2">
+                            <strong className="text-slate-700">Curriculum:</strong> {session.notes}
+                          </div>
+                        )}
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-1 rounded-lg" style={{ background: `${typeConfig.color}10`, color: typeConfig.color }}>
-                        {typeConfig.label}
-                      </span>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="text-[10px] font-bold px-2 py-1 rounded-lg" style={{ background: `${typeConfig.color}10`, color: typeConfig.color }}>
+                          {typeConfig.label}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button 
+                            onClick={() => handleRSVP(session.id, "going")}
+                            className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-colors ${session.response === "going" ? "bg-emerald-500 text-white border-emerald-600 shadow-sm" : "bg-white text-emerald-600 border-emerald-200 hover:bg-emerald-50"}`}
+                          >
+                            ✓ Going
+                          </button>
+                          <button 
+                            onClick={() => handleRSVP(session.id, "not_going")}
+                            className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-colors ${session.response === "not_going" ? "bg-rose-500 text-white border-rose-600 shadow-sm" : "bg-white text-rose-600 border-rose-200 hover:bg-rose-50"}`}
+                          >
+                            ✗ Not Going
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   );
                 })}

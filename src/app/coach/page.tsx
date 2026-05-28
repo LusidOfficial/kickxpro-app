@@ -45,7 +45,28 @@ export default function CoachDashboard() {
   const [selectedSession, setSelectedSession] = useState<SessionDetail | null>(null);
   const [coachRating, setCoachRating] = useState<{ avg: number; count: number } | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [dismissedFees, setDismissedFees] = useState(false);
+  const [dismissedMsgs, setDismissedMsgs] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const savedFees = localStorage.getItem(`kickx_dismissed_fees_${currentMonth}`);
+      if (savedFees === "true") setDismissedFees(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && unreadMessages > 0) {
+      const savedMsgs = localStorage.getItem(`kickx_dismissed_msgs_${unreadMessages}`);
+      if (savedMsgs === "true") {
+        setDismissedMsgs(true);
+      } else {
+        setDismissedMsgs(false);
+      }
+    }
+  }, [unreadMessages]);
 
   useEffect(() => {
     if (!user) return;
@@ -215,10 +236,9 @@ export default function CoachDashboard() {
       </div>
 
       {/* ── FEE COLLECTION ALERT ── */}
-      {feesPending > 0 && (
-        <Link
-          href="/coach/fees"
-          className="flex items-center gap-4 px-5 py-4 rounded-2xl border-2 no-underline animate-fade-up hover:shadow-md transition-all group"
+      {feesPending > 0 && !dismissedFees && (
+        <div
+          className="flex items-center gap-4 px-5 py-4 rounded-2xl border-2 animate-fade-up hover:shadow-md transition-all group relative"
           style={{ background: "rgba(249,115,22,0.06)", borderColor: "rgba(249,115,22,0.25)" }}
         >
           <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
@@ -234,17 +254,25 @@ export default function CoachDashboard() {
                 : "Collect outstanding fees for this month."}
             </div>
           </div>
-          <div className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold flex-shrink-0 bg-orange-500 text-white group-hover:bg-orange-600 transition-colors shadow-sm">
+          <Link href="/coach/fees" className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold flex-shrink-0 bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-sm no-underline">
             Collect Now <IconChevronRight size={12} />
-          </div>
-        </Link>
+          </Link>
+          <button onClick={() => {
+            setDismissedFees(true);
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            localStorage.setItem(`kickx_dismissed_fees_${currentMonth}`, "true");
+          }} className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-50 shadow-sm transition-colors">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       )}
 
       {/* Unread Messages Alert */}
-      {unreadMessages > 0 && (
-        <Link
-          href="/coach/messages"
-          className="flex items-center gap-4 px-5 py-3 rounded-2xl border-2 no-underline animate-fade-up hover:shadow-md transition-all group"
+      {unreadMessages > 0 && !dismissedMsgs && (
+        <div
+          className="flex items-center gap-4 px-5 py-3 rounded-2xl border-2 animate-fade-up hover:shadow-md transition-all group relative"
           style={{ background: "rgba(59,130,246,0.05)", borderColor: "rgba(59,130,246,0.2)" }}
         >
           <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
@@ -253,8 +281,18 @@ export default function CoachDashboard() {
           <div className="flex-1">
             <div className="font-bold text-blue-700 text-sm">{unreadMessages} unread message{unreadMessages !== 1 ? "s" : ""}</div>
           </div>
-          <span className="text-[10px] font-bold text-blue-500 group-hover:text-blue-700 transition-colors">View →</span>
-        </Link>
+          <Link href="/coach/messages" className="text-[10px] font-bold text-blue-500 hover:text-blue-700 transition-colors no-underline uppercase tracking-wider bg-blue-100 px-3 py-1.5 rounded flex items-center gap-1">
+            View Inbox <IconChevronRight size={12} />
+          </Link>
+          <button onClick={() => {
+            setDismissedMsgs(true);
+            localStorage.setItem(`kickx_dismissed_msgs_${unreadMessages}`, "true");
+          }} className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-50 shadow-sm transition-colors">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       )}
 
       {/* Quick Actions */}

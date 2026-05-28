@@ -189,7 +189,7 @@ export default function PlayerProgressPage() {
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Evaluations</div>
         </div>
         <div className="card-static p-4 text-center">
-          <div className="text-3xl font-black text-emerald-600" style={{ fontFamily: "var(--font-heading)" }}>{Math.round(overallAvg)}</div>
+          <div className="text-3xl font-black text-emerald-600" style={{ fontFamily: "var(--font-heading)" }}>{(overallAvg / 10).toFixed(1)}</div>
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Overall Score</div>
         </div>
         <div className="card-static p-4 text-center">
@@ -260,9 +260,9 @@ export default function PlayerProgressPage() {
                         <IconStar size={10} /> {ev.badge_awarded}
                       </span>
                     )}
-                    <div className="score-ring text-sm" style={{ width: 40, height: 40, fontSize: "0.85rem" }}>
+                    <div className="score-ring text-sm" style={{ width: 42, height: 40, fontSize: "0.85rem" }}>
                       {Object.values(ev.scores || {}).length > 0
-                        ? Math.round(Object.values(ev.scores).reduce((s, v) => s + v, 0) / Object.values(ev.scores).length)
+                        ? (Math.round(Object.values(ev.scores).reduce((s, v) => s + v, 0) / Object.values(ev.scores).length) / 10).toFixed(1)
                         : "—"}
                     </div>
                   </div>
@@ -275,7 +275,7 @@ export default function PlayerProgressPage() {
                     <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                       {SKILL_METRICS.map(m => (
                         <div key={m.key} className="text-center p-2 bg-slate-50 rounded-xl">
-                          <div className="text-lg font-black text-slate-900">{ev.scores[m.key] || 0}</div>
+                          <div className="text-lg font-black text-slate-900">{ev.scores[m.key] ? (ev.scores[m.key] / 10).toFixed(1) : "0.0"}</div>
                           <div className="text-[9px] font-bold text-slate-400 uppercase">{m.short}</div>
                         </div>
                       ))}
@@ -337,10 +337,10 @@ export default function PlayerProgressPage() {
                         <span className="text-[10px] font-bold text-slate-400">({skill.label})</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-black text-slate-900">{skill.latest}</span>
+                        <span className="text-sm font-black text-slate-900">{(skill.latest / 10).toFixed(1)}</span>
                         {skill.change !== 0 && skill.count > 1 && (
                           <span className={`text-[10px] font-bold ${skill.change > 0 ? "text-emerald-600" : "text-red-500"}`}>
-                            {skill.change > 0 ? "+" : ""}{skill.change}
+                            {skill.change > 0 ? "+" : ""}{(skill.change / 10).toFixed(1)}
                           </span>
                         )}
                       </div>

@@ -9,6 +9,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import FeedbackWidget from "@/components/FeedbackWidget";
 import { NAV_ITEMS } from "@/lib/constants";
 import {
   IconGrid, IconUsers, IconClipboard, IconTimer, IconTarget,
@@ -78,7 +79,7 @@ export default function CoachLayout({
                   color: isClassic ? "#7C3AED" : "#059669",
                 }}
               >
-                <span>{isClassic ? "⚡ Classic View" : "✨ Simplified"}</span>
+                <span>{isClassic ? "⚡ V2 (Full Features)" : "✨ Simplified (MVP)"}</span>
                 <span className="text-[9px] opacity-60">Switch →</span>
               </button>
             </div>
@@ -122,6 +123,7 @@ export default function CoachLayout({
             {children}
           </main>
         </div>
+        <FeedbackWidget role="coach" />
       </div>
     </ProtectedRoute>
   );

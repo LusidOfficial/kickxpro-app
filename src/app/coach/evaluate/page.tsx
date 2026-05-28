@@ -16,7 +16,7 @@ import { useAuth } from "@/lib/auth-context";
 
 interface Player {
   id: string;
-  num: number | string;
+  pos: string;
   name: string;
 }
 
@@ -28,6 +28,7 @@ interface EvalData {
   badgeAwarded: string | null;
   goalTitle: string;
   goalCategory: string;
+  suggestedGoals: { title: string; category: string; selected: boolean }[];
   saved: boolean;
 }
 
@@ -39,6 +40,7 @@ const DEFAULT_EVAL: EvalData = {
   badgeAwarded: null,
   goalTitle: "",
   goalCategory: "technical",
+  suggestedGoals: [],
   saved: false,
 };
 
@@ -59,18 +61,23 @@ function EvaluateContent() {
   const [evaluations, setEvaluations] = useState<Record<string, EvalData>>({});
   const [showToast, setShowToast] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
 
   useEffect(() => {
     async function fetchPlayers() {
       if (!user) return;
       const { data } = await supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("id, full_name, position")
         .eq("role", "player")
         .eq("coach_id", user.id);
 
       if (data && data.length > 0) {
-        const pList = data.map((d, i) => ({ id: d.id, name: d.full_name, num: i + 20 }));
+        const pList = data.map((d) => ({ 
+          id: d.id, 
+          name: d.full_name, 
+          pos: d.position || d.full_name.substring(0, 2).toUpperCase() 
+        }));
         setPlayers(pList);
         setActivePlayerId(pList[0].id);
       }
@@ -111,11 +118,45 @@ function EvaluateContent() {
     updateCurrentData({ badgeAwarded: currentData.badgeAwarded === badgeId ? null : badgeId });
   };
 
-  const generateSummary = () => {
-    const s = currentData.strengths.length > 0 ? `Showed great ${currentData.strengths.join(" and ")}.` : "";
-    const f = currentData.focusAreas.length > 0 ? ` Needs to focus on ${currentData.focusAreas.join(" and ")} for the next session.` : "";
-    const b = currentData.badgeAwarded ? ` Awarded the ${INCENTIVE_BADGES.find(x => x.id === currentData.badgeAwarded)?.label} badge!` : "";
-    updateCurrentData({ summary: `Solid performance today. ${s}${f}${b}` });
+  const toggleSuggestedGoal = (index: number) => {
+    const updated = [...currentData.suggestedGoals];
+    updated[index].selected = !updated[index].selected;
+    updateCurrentData({ suggestedGoals: updated });
+  };
+
+  const generateSummary = async () => {
+    setGeneratingSummary(true);
+    const activePlayer = players.find(p => p.id === activePlayerId);
+    
+    try {
+      const response = await fetch('/api/generate-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerName: activePlayer?.name || "Player",
+          scores: currentData.scores,
+          strengths: currentData.strengths,
+          focusAreas: currentData.focusAreas,
+          badge: currentData.badgeAwarded ? INCENTIVE_BADGES.find(x => x.id === currentData.badgeAwarded)?.label : null
+        })
+      });
+      const data = await response.json();
+      
+      const goals = (data.suggestedGoals || []).map((g: any) => ({ ...g, selected: true }));
+      updateCurrentData({ summary: data.summary, suggestedGoals: goals });
+    } catch (error) {
+      console.error("Failed to generate summary", error);
+      // Fallback
+      const s = currentData.strengths.length > 0 ? `Showed great ${currentData.strengths.join(" and ")}.` : "";
+      const f = currentData.focusAreas.length > 0 ? ` Needs to focus on ${currentData.focusAreas.join(" and ")} for the next session.` : "";
+      const b = currentData.badgeAwarded ? ` Awarded the ${INCENTIVE_BADGES.find(x => x.id === currentData.badgeAwarded)?.label} badge!` : "";
+      updateCurrentData({ 
+        summary: `Solid performance today. ${s}${f}${b}`,
+        suggestedGoals: currentData.focusAreas.map(fa => ({ title: `Practice your ${fa}`, category: 'technical', selected: true })).slice(0, 2)
+      });
+    } finally {
+      setGeneratingSummary(false);
+    }
   };
 
   const handleSave = async () => {
@@ -166,15 +207,32 @@ function EvaluateContent() {
          }
        }
 
-       // Save goal if provided
+       // Save goals
+       const goalsToSave = [];
        if (currentData.goalTitle.trim()) {
-         await supabase.from("goals").insert({
+         goalsToSave.push({
            player_id: activePlayerId,
            coach_id: user.id,
            category: currentData.goalCategory,
            title: currentData.goalTitle.trim(),
            status: "not_started",
          });
+       }
+
+       currentData.suggestedGoals.forEach(g => {
+         if (g.selected) {
+           goalsToSave.push({
+             player_id: activePlayerId,
+             coach_id: user.id,
+             category: g.category || "technical",
+             title: g.title,
+             status: "not_started",
+           });
+         }
+       });
+
+       if (goalsToSave.length > 0) {
+         await supabase.from("goals").insert(goalsToSave);
        }
     } catch (err) {
        console.error(err);
@@ -231,7 +289,7 @@ function EvaluateContent() {
         <div className="flex items-center gap-3 bg-white px-3 md:px-4 py-2 rounded-2xl shadow-sm border border-slate-100 self-start md:self-auto">
            <span className="text-[10px] md:text-xs font-bold text-slate-400 tracking-wider">OVERALL</span>
            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-lg md:text-xl font-black text-white shadow-inner" style={{ background: "linear-gradient(135deg, #10B981, #059669)", fontFamily: "var(--font-heading)" }}>
-             {overallScore}
+             {(overallScore / 10).toFixed(1)}
            </div>
         </div>
       </div>
@@ -255,7 +313,7 @@ function EvaluateContent() {
             >
                <div className="w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center text-[10px] md:text-xs font-bold" 
                    style={{ background: activePlayerId === player.id ? "rgba(255,255,255,0.2)" : (isSaved ? "#dcfce7" : "rgba(0,0,0,0.05)"), color: isSaved && activePlayerId !== player.id ? "#166534" : "inherit" }}>
-                {isSaved ? <IconCheck size={12} /> : player.num}
+                {isSaved ? <IconCheck size={12} /> : player.pos}
               </div>
               <span className="font-bold text-xs md:text-sm tracking-tight">{player.name}</span>
             </button>
@@ -268,40 +326,43 @@ function EvaluateContent() {
         {/* Left Col: Sliders (Step 2) */}
         <div className="space-y-6">
            <div>
-             <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">2. Adjust Core Attributes (1-99)</h3>
+             <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">2. Adjust Core Attributes (1-10)</h3>
              <div className="card-static p-4 md:p-6 space-y-6 md:space-y-7">
               {SKILL_METRICS.map((metric) => {
-                const val = currentData.scores[metric.key] || 1;
+                const rawVal = currentData.scores[metric.key] || 1;
+                const displayVal = Math.max(1, Math.round(rawVal / 10)); // 1 to 10
+                const widthPercent = (displayVal / 10) * 100;
+                
                 return (
                   <div key={metric.key}>
                     <div className="flex justify-between text-[10px] md:text-xs font-bold mb-2 md:mb-3 uppercase tracking-wider text-slate-600">
                       <span>{metric.label}</span>
-                      <span className="text-emerald-600 text-xs md:text-sm font-black">{val}</span>
+                      <span className="text-emerald-600 text-xs md:text-sm font-black">{displayVal}</span>
                     </div>
                     <div className="relative h-3 md:h-4 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60 shadow-inner">
                       <div className="absolute top-0 left-0 h-full rounded-full transition-all duration-300 ease-out" 
                            style={{ 
-                             width: `${val}%`, 
-                             background: val < 40 ? "linear-gradient(90deg, #F87171, #EF4444)" : val < 75 ? "linear-gradient(90deg, #FBBF24, #F59E0B)" : "linear-gradient(90deg, #34D399, #10B981)" 
+                             width: `${widthPercent}%`, 
+                             background: displayVal < 4 ? "linear-gradient(90deg, #F87171, #EF4444)" : displayVal < 8 ? "linear-gradient(90deg, #FBBF24, #F59E0B)" : "linear-gradient(90deg, #34D399, #10B981)" 
                            }} 
                       />
                       {/* Visible Thumb Knob */}
                       <div 
-                        className="absolute top-1/2 -translate-y-1/2 w-6 h-6 md:w-7 md:h-7 rounded-full bg-white shadow-lg border-2 flex items-center justify-center text-[8px] md:text-[9px] font-black transition-all duration-300 ease-out pointer-events-none z-10"
+                        className="absolute top-1/2 -translate-y-1/2 w-6 h-6 md:w-7 md:h-7 rounded-full bg-white shadow-lg border-2 flex items-center justify-center text-[10px] font-black transition-all duration-300 ease-out pointer-events-none z-10"
                         style={{ 
-                          left: `calc(${val}% - 14px)`,
-                          borderColor: val < 40 ? "#EF4444" : val < 75 ? "#F59E0B" : "#10B981",
-                          color: val < 40 ? "#EF4444" : val < 75 ? "#F59E0B" : "#10B981"
+                          left: `calc(${widthPercent}% - 14px)`,
+                          borderColor: displayVal < 4 ? "#EF4444" : displayVal < 8 ? "#F59E0B" : "#10B981",
+                          color: displayVal < 4 ? "#EF4444" : displayVal < 8 ? "#F59E0B" : "#10B981"
                         }}
                       >
-                        {val}
+                        {displayVal}
                       </div>
                       <input
                         type="range"
                         min="1"
-                        max="99"
-                        value={val}
-                        onChange={(e) => handleScoreChange(metric.key, parseInt(e.target.value))}
+                        max="10"
+                        value={displayVal}
+                        onChange={(e) => handleScoreChange(metric.key, parseInt(e.target.value) * 10)}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                       />
                     </div>
@@ -414,6 +475,27 @@ function EvaluateContent() {
                  value={currentData.goalTitle}
                  onChange={e => updateCurrentData({ goalTitle: e.target.value })}
                />
+
+               {currentData.suggestedGoals.length > 0 && (
+                 <div className="mt-4 pt-4 border-t border-emerald-100/50">
+                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                     <IconAward size={12} color="#F59E0B" /> AI Suggested Quests
+                   </div>
+                   <div className="space-y-2">
+                     {currentData.suggestedGoals.map((goal, idx) => (
+                       <label key={idx} className="flex items-start gap-3 p-3 rounded-lg border border-slate-100 bg-white hover:bg-slate-50 cursor-pointer transition-colors group">
+                         <div className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center border transition-colors shrink-0 ${goal.selected ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300'}`}>
+                           {goal.selected && <IconCheck size={12} />}
+                         </div>
+                         <div>
+                           <div className="text-sm font-medium text-slate-700">{goal.title}</div>
+                           <div className="text-[10px] font-bold text-slate-400 uppercase">{goal.category}</div>
+                         </div>
+                       </label>
+                     ))}
+                   </div>
+                 </div>
+               )}
              </div>
            </div>
 
@@ -424,12 +506,24 @@ function EvaluateContent() {
               <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                 4. KickXPro Report
               </h3>
-              <button 
-                onClick={generateSummary}
-                className="text-[10px] md:text-xs font-bold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-lg shadow-sm transition-colors flex items-center gap-1.5 border border-emerald-200 group"
-              >
-                Auto Create <span className="group-hover:scale-110 transition-transform">📋</span>
-              </button>
+              <div className="flex gap-2">
+                {currentData.summary && (
+                  <button 
+                    onClick={generateSummary}
+                    disabled={generatingSummary}
+                    className="text-[10px] md:text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg shadow-sm transition-colors flex items-center gap-1.5 border border-slate-200 group disabled:opacity-50"
+                  >
+                    {generatingSummary ? "..." : "Regenerate"} <span className="group-hover:rotate-180 transition-transform block">🔄</span>
+                  </button>
+                )}
+                <button 
+                  onClick={generateSummary}
+                  disabled={generatingSummary}
+                  className="text-[10px] md:text-xs font-bold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-lg shadow-sm transition-colors flex items-center gap-1.5 border border-emerald-200 group disabled:opacity-50"
+                >
+                  {generatingSummary ? "AI Thinking..." : "Auto Create"} <span className="group-hover:scale-110 transition-transform block">📋</span>
+                </button>
+              </div>
             </div>
             
             <div className="relative rounded-2xl p-1 bg-slate-900 shadow-xl overflow-hidden group">

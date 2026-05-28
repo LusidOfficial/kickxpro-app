@@ -45,9 +45,16 @@ export default function PlayerDashboard() {
   const [goals, setGoals] = useState<any[]>([]);
   const [recentMessages, setRecentMessages] = useState<any[]>([]);
   const [showFAQ, setShowFAQ] = useState(false);
+  const [showMedical, setShowMedical] = useState(false);
+  const [medicalReason, setMedicalReason] = useState("");
+  const [medicalDetails, setMedicalDetails] = useState("");
+  const [sendingMedical, setSendingMedical] = useState(false);
   const [inviteToast, setInviteToast] = useState(false);
   const [feeStatus, setFeeStatus] = useState<"Paid" | "Pending" | null>(null);
-  const [nextSession, setNextSession] = useState<{ title: string; date: string; time: string; type: string; duration: number; daysUntil: number } | null>(null);
+  const [nextSession, setNextSession] = useState<{ title: string; date: string; time: string; type: string; duration: number; daysUntil: number; curriculum?: string } | null>(null);
+  
+  // Live session for parents
+  const [liveSession, setLiveSession] = useState<{ title: string; startTime: string; elapsed: number } | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -70,20 +77,23 @@ export default function PlayerDashboard() {
       if (evals && evals.length > 0) {
         const latest = evals[0];
         
-        let overall = 0;
-        const keys = Object.keys(latest.scores || {});
-        if (keys.length > 0) {
-           overall = Math.round(keys.reduce((sum: number, key: string) => sum + latest.scores[key], 0) / keys.length);
-        }
+        // Calculate rolling average across all evaluations (matching printable report card)
+        const skillAverages = SKILL_METRICS.map(m => {
+          const scores = evals.map(e => e.scores?.[m.key]).filter((v): v is number => v != null && v > 0);
+          const avg = scores.length > 0 ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length) : null;
+          return { avg };
+        });
+        const ratedSkills = skillAverages.filter(s => s.avg !== null);
+        const rollingOverallAvg = ratedSkills.length > 0 ? ratedSkills.reduce((s, t) => s + (t.avg || 0), 0) / ratedSkills.length : 0;
 
         const formattedRadar = SKILL_METRICS.map(m => ({ 
            label: m.short, 
            value: ((latest.scores && latest.scores[m.key]) || 1) / 20 
-        }));
+         }));
 
         setLatestEval({
           date: new Date(latest.created_at).toLocaleDateString(),
-          overallScore: overall,
+          overallScore: rollingOverallAvg,
           summary: latest.summary || "No notes provided.",
           strengths: latest.strengths || [],
           focusAreas: latest.focus_areas || [],
@@ -127,7 +137,7 @@ export default function PlayerDashboard() {
         const todayStr = new Date().toISOString().split("T")[0];
         const { data: nextSess } = await supabase
           .from("sessions")
-          .select("title, session_date, start_time, session_type, duration_mins")
+          .select("title, session_date, start_time, session_type, duration_mins, notes")
           .eq("coach_id", pData.coach_id)
           .gte("session_date", todayStr)
           .order("session_date", { ascending: true })
@@ -144,6 +154,7 @@ export default function PlayerDashboard() {
             type: nextSess.session_type || "training",
             duration: nextSess.duration_mins || 60,
             daysUntil: diffDays,
+            curriculum: nextSess.notes || undefined,
           });
         }
       }
@@ -173,6 +184,46 @@ export default function PlayerDashboard() {
     }
     loadData();
   }, [user]);
+
+  // Poll for Live Session
+  useEffect(() => {
+    if (!coachProfile?.id) return;
+    
+    async function checkLive() {
+      const todayStr = new Date().toISOString().split("T")[0];
+      const { data } = await supabase
+        .from("sessions")
+        .select("title, start_time, session_date")
+        .eq("coach_id", coachProfile.id)
+        .eq("session_date", todayStr)
+        .eq("duration_mins", 0)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (data) {
+        // compute elapsed manually since we just have start_time as 'HH:MM:SS'
+        const start = new Date(`${data.session_date}T${data.start_time}`);
+        const diff = Math.max(0, Math.floor((Date.now() - start.getTime()) / 1000));
+        setLiveSession({ title: data.title, startTime: data.start_time, elapsed: diff });
+      } else {
+        setLiveSession(null);
+      }
+    }
+
+    checkLive();
+    const interval = setInterval(checkLive, 10000); // Check every 10 seconds
+    return () => clearInterval(interval);
+  }, [coachProfile]);
+
+  // Live timer tick
+  useEffect(() => {
+    if (!liveSession) return;
+    const interval = setInterval(() => {
+      setLiveSession(prev => prev ? { ...prev, elapsed: prev.elapsed + 1 } : null);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [liveSession?.startTime]);
 
   const toggleGoal = async (goalId: string) => {
     const goal = goals.find(g => g.id === goalId);
@@ -220,6 +271,27 @@ export default function PlayerDashboard() {
     }, 3000);
   };
 
+  const submitMedical = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !coachProfile || !medicalReason) return;
+    setSendingMedical(true);
+    
+    const messageContent = `[MEDICAL/ABSENCE REPORT]\nReason: ${medicalReason}\nDetails: ${medicalDetails || "None provided"}`;
+    
+    await supabase.from("messages").insert({
+      sender_id: user.id,
+      receiver_id: coachProfile.id,
+      content: messageContent,
+    });
+    
+    setSendingMedical(false);
+    setShowMedical(false);
+    setMedicalReason("");
+    setMedicalDetails("");
+    setInviteToast(true); // Re-using toast for success
+    setTimeout(() => setInviteToast(false), 3000);
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20">
 
@@ -238,6 +310,31 @@ export default function PlayerDashboard() {
         </div>
       )}
       
+      {/* ── LIVE SESSION BANNER (shown to parents/players if running) ── */}
+      {liveSession && (
+        <div className="flex items-center gap-4 px-5 py-4 rounded-2xl border-2 animate-fade-up bg-emerald-500 text-white"
+          style={{ borderColor: "#059669" }}>
+          <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 animate-pulse">
+            <IconActivity size={24} color="white" />
+          </div>
+          <div className="flex-1">
+            <div className="font-black text-sm uppercase tracking-widest flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+              Live Session in Progress
+            </div>
+            <div className="font-medium mt-0.5 text-emerald-50">
+              {liveSession.title}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-black font-mono">
+              {Math.floor(liveSession.elapsed / 60).toString().padStart(2, '0')}:{(liveSession.elapsed % 60).toString().padStart(2, '0')}
+            </div>
+            <div className="text-[10px] font-bold uppercase text-emerald-100 opacity-80">Elapsed</div>
+          </div>
+        </div>
+      )}
+
       {/* Header Profile Section */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-5">
@@ -310,7 +407,7 @@ export default function PlayerDashboard() {
               ]} 
               maxDots={7} 
             />
-            <RankBadge avgScore={latestEval.overallScore > 0 ? latestEval.overallScore / 20 : 0} />
+            <RankBadge avgScore={latestEval.overallScore} tier={profile?.tier} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -358,6 +455,14 @@ export default function PlayerDashboard() {
                      {nextSession.daysUntil === 0 && <div className="mt-2 text-xs font-black text-emerald-400 animate-pulse">🔴 TODAY</div>}
                      {nextSession.daysUntil === 1 && <div className="mt-2 text-xs font-bold text-amber-400">Tomorrow</div>}
                      {nextSession.daysUntil > 1 && <div className="mt-2 text-xs font-bold text-slate-500">In {nextSession.daysUntil} days</div>}
+                     {nextSession.curriculum && (
+                       <div className="mt-4 pt-3 border-t border-slate-700/50">
+                         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Curriculum</div>
+                         <p className="text-xs text-slate-300 leading-relaxed line-clamp-3">
+                           {nextSession.curriculum}
+                         </p>
+                       </div>
+                     )}
                    </>
                  ) : (
                    <>
@@ -375,18 +480,24 @@ export default function PlayerDashboard() {
         <div className="space-y-8">
           
           {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <button 
               onClick={handleInvite}
-              className="flex items-center justify-center gap-2 p-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl shadow-md font-bold text-xs md:text-sm hover:scale-105 transition-transform"
+              className="flex items-center justify-center gap-1.5 p-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl shadow-md font-bold text-xs hover:scale-105 transition-transform"
             >
-              <IconUser size={16} /> Invite Friend
+              <IconUser size={16} /> Invite
+            </button>
+            <button 
+              onClick={() => setShowMedical(true)} 
+              className="flex items-center justify-center gap-1.5 p-3 bg-white text-rose-600 border border-rose-200 rounded-xl shadow-sm font-bold text-xs hover:bg-rose-50 transition-colors group"
+            >
+              <IconActivity size={16} className="text-rose-500 group-hover:text-rose-600 transition-colors" /> Medical
             </button>
             <button 
               onClick={() => setShowFAQ(true)} 
-              className="flex items-center justify-center gap-2 p-3 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm font-bold text-xs md:text-sm hover:bg-slate-50 transition-colors group"
+              className="flex items-center justify-center gap-1.5 p-3 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm font-bold text-xs md:col-span-1 col-span-2 hover:bg-slate-50 transition-colors group"
             >
-              <IconShield size={16} className="text-slate-400 group-hover:text-blue-500 transition-colors" /> How it Works
+              <IconShield size={16} className="text-slate-400 group-hover:text-blue-500 transition-colors" /> Help
             </button>
           </div>
 
@@ -438,30 +549,67 @@ export default function PlayerDashboard() {
             </div>
           </div>
 
-          {/* Goals (Real from DB) */}
-          <div className="card-static p-6">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
-              <IconTarget size={16} color="#10B981" /> Active Goals
-            </h3>
-            <div className="space-y-3">
+          {/* Action Quests (AI & Coach Goals) */}
+          <div className="card-static p-0 overflow-hidden border-2 border-emerald-100">
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-4 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/4"></div>
+              <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2 relative z-10">
+                <IconTarget size={18} color="white" /> Action Quests
+              </h3>
+              <p className="text-[10px] text-emerald-50 font-bold opacity-90 mt-1 relative z-10">
+                Complete these tasks assigned by your coach to level up your game.
+              </p>
+            </div>
+            
+            <div className="p-4 space-y-3 bg-white">
               {goals.length === 0 ? (
-                <p className="text-xs text-slate-400 py-2">No goals assigned yet. Your coach will set goals after evaluations.</p>
+                <div className="text-center py-6">
+                  <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-2 border border-slate-100">
+                    <IconTarget size={20} color="#94A3B8" />
+                  </div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No Active Quests</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Play hard! Your coach will assign quests soon.</p>
+                </div>
               ) : goals.map((g) => {
                 const isDone = g.status === "achieved";
+                
+                // Color map by category
+                let catColor = "text-slate-500 bg-slate-100 border-slate-200";
+                if (g.category === "technical") catColor = "text-blue-600 bg-blue-50 border-blue-200";
+                if (g.category === "tactical") catColor = "text-purple-600 bg-purple-50 border-purple-200";
+                if (g.category === "physical") catColor = "text-orange-600 bg-orange-50 border-orange-200";
+                
                 return (
                   <button
                     key={g.id}
                     onClick={() => toggleGoal(g.id)}
-                    className="goal-btn w-full flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors group"
+                    className={`w-full flex items-start gap-3 p-3 rounded-xl border-2 transition-all group relative overflow-hidden ${
+                      isDone 
+                        ? 'bg-emerald-50/50 border-emerald-100 opacity-70' 
+                        : 'bg-white border-slate-100 hover:border-emerald-200 hover:shadow-md'
+                    }`}
                   >
-                    <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${isDone ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'border-slate-300 bg-white group-hover:border-emerald-400'}`}>
-                      {isDone && <IconCheck size={12} />}
+                    {isDone && <div className="absolute inset-0 bg-emerald-100/30 animate-pulse pointer-events-none"></div>}
+                    
+                    <div className={`mt-0.5 w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all shrink-0 relative z-10 ${
+                      isDone 
+                        ? 'bg-emerald-500 border-emerald-500 text-white shadow-inner scale-110' 
+                        : 'border-slate-300 bg-white group-hover:border-emerald-400 group-hover:bg-emerald-50'
+                    }`}>
+                      {isDone && <IconCheck size={14} />}
                     </div>
-                    <div className="flex-1 text-left">
-                      <span className={`text-sm font-medium transition-colors block ${isDone ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                    
+                    <div className="flex-1 text-left relative z-10">
+                      <span className={`text-sm font-bold transition-colors block leading-tight ${isDone ? 'text-emerald-700 line-through decoration-emerald-300/50' : 'text-slate-800 group-hover:text-emerald-700'}`}>
                         {g.title}
                       </span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">{g.category}</span>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${isDone ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : catColor}`}>
+                          {g.category || 'General'}
+                        </span>
+                        {!isDone && <span className="text-[9px] font-bold text-slate-400">Tap to complete</span>}
+                        {isDone && <span className="text-[9px] font-black text-emerald-600">Quest Completed! +50 XP</span>}
+                      </div>
                     </div>
                   </button>
                 );
@@ -570,7 +718,65 @@ export default function PlayerDashboard() {
               </div>
             </div>
 
-            <button onClick={() => setShowFAQ(false)} className="w-full mt-8 btn-primary font-bold py-3.5 shadow-md">Got it, let's play!</button>
+            <button onClick={() => setShowFAQ(false)} className="btn-primary w-full mt-6 py-3">Got it!</button>
+          </div>
+        </div>
+      )}
+
+      {/* Medical/Absence Modal */}
+      {showMedical && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-up">
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
+            <div className="absolute -top-6 -right-6 w-24 h-24 bg-rose-100 rounded-full blur-2xl pointer-events-none" />
+            <h2 className="text-xl font-bold text-slate-900 mb-2 font-heading flex items-center gap-2">
+              <IconActivity className="text-rose-500" /> Report Medical / Absence
+            </h2>
+            <p className="text-sm text-slate-500 mb-6">Notify your coach about illness, injury, or planned absences.</p>
+            
+            <form onSubmit={submitMedical} className="space-y-4 relative z-10">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Reason</label>
+                <select 
+                  className="input w-full"
+                  value={medicalReason}
+                  onChange={(e) => setMedicalReason(e.target.value)}
+                  required
+                >
+                  <option value="" disabled>Select reason...</option>
+                  <option value="Illness">Sick / Illness</option>
+                  <option value="Injury">Injury</option>
+                  <option value="Family Emergency">Family Emergency</option>
+                  <option value="Travel / Vacation">Travel / Vacation</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Additional Details</label>
+                <textarea 
+                  className="input w-full" 
+                  rows={3} 
+                  placeholder="Expected return date, specific symptoms, etc."
+                  value={medicalDetails}
+                  onChange={(e) => setMedicalDetails(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setShowMedical(false)} 
+                  className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={sendingMedical || !medicalReason}
+                  className="flex-1 py-3 bg-rose-500 text-white font-bold rounded-xl hover:bg-rose-600 disabled:opacity-50 transition-colors"
+                >
+                  {sendingMedical ? "Sending..." : "Send Report"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

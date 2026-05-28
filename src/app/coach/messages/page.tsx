@@ -32,6 +32,7 @@ export default function CoachMessagesPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -61,6 +62,25 @@ export default function CoachMessagesPage() {
 
     if (data) {
       const list = data.map(p => ({ id: p.id, name: p.full_name || "Unknown", position: p.position || "MID" }));
+      
+      // Fetch unread counts globally for this coach
+      const { data: unreadData } = await supabase
+        .from("messages")
+        .select("sender_id")
+        .eq("receiver_id", user.id)
+        .eq("read_status", false);
+        
+      const counts: Record<string, number> = {};
+      if (unreadData) {
+        unreadData.forEach(msg => {
+          counts[msg.sender_id] = (counts[msg.sender_id] || 0) + 1;
+        });
+      }
+      setUnreadCounts(counts);
+
+      // Sort list to put players with unread messages at the top
+      list.sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0));
+
       setPlayers(list);
       if (list.length > 0) setActivePlayerId(list[0].id);
     }
@@ -85,6 +105,8 @@ export default function CoachMessagesPage() {
       .eq("sender_id", activePlayerId)
       .eq("receiver_id", user.id)
       .eq("read_status", false);
+      
+    setUnreadCounts(prev => ({ ...prev, [activePlayerId]: 0 }));
   }
 
   async function sendMessage() {
@@ -143,7 +165,14 @@ export default function CoachMessagesPage() {
                   {player.name.split(" ").map(n => n[0]).join("")}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm text-slate-900 truncate">{player.name}</div>
+                  <div className="font-bold text-sm text-slate-900 truncate flex items-center justify-between">
+                    {player.name}
+                    {(unreadCounts[player.id] || 0) > 0 && (
+                      <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">
+                        {unreadCounts[player.id]}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-[10px] font-bold text-slate-400 uppercase">{player.position}</div>
                 </div>
               </button>

@@ -9,8 +9,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import {
-  IconUsers, IconPlus, IconCheck, IconUser, IconChevronRight
+  IconUsers, IconPlus, IconCheck, IconUser, IconChevronRight, IconAward
 } from "@/components/Icons";
+import { RANK_TIERS, PlayerTier } from "@/lib/constants";
 
 const DEFAULT_STUDENT_PASSWORD = "kickxpro123";
 
@@ -21,6 +22,7 @@ interface Student {
   position: string;
   age: number | null;
   overall_score: number;
+  tier: PlayerTier;
 }
 
 interface NewCredentials {
@@ -55,7 +57,7 @@ export default function MyStudentsPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, position, age, overall_score")
+      .select("id, full_name, email, position, age, overall_score, tier")
       .eq("role", "player")
       .eq("coach_id", user.id)
       .order("full_name");
@@ -68,6 +70,7 @@ export default function MyStudentsPage() {
         position: p.position || "MID",
         age: p.age,
         overall_score: p.overall_score || 0,
+        tier: (p.tier as PlayerTier) || "Beginner",
       })));
     }
     setLoading(false);
@@ -137,6 +140,7 @@ export default function MyStudentsPage() {
           position: newPosition,
           age: newAge ? parseInt(newAge) : null,
           overall_score: 0,
+          tier: "Beginner",
         }]);
 
         // Step 4: Show credentials so coach can share with student
@@ -167,6 +171,35 @@ export default function MyStudentsPage() {
     await supabase.from("profiles").update({ coach_id: null }).eq("id", studentId);
     setStudents(prev => prev.filter(s => s.id !== studentId));
     showToast(`${studentName} removed from squad`);
+  }
+
+  async function handleTierChange(studentId: string, oldTier: PlayerTier, newTier: PlayerTier, currentScore: number) {
+    if (oldTier === newTier) return;
+    
+    const tierOrder = ["Beginner", "Intermediate", "Advanced", "Elite", "Pro"];
+    const oldIndex = tierOrder.indexOf(oldTier);
+    const newIndex = tierOrder.indexOf(newTier);
+    
+    // Difference in levels (e.g., +1 for Beginner -> Intermediate)
+    const diff = newIndex - oldIndex;
+    
+    // If upgrading, score drops by 20 per tier level. If demoting, score increases.
+    let newScore = currentScore - (diff * 20);
+    
+    // Ensure bounds (0-100 logic roughly)
+    if (newScore < 0) newScore = 0;
+    if (newScore > 100) newScore = 100;
+    
+    // Optimistic UI update
+    setStudents(prev => prev.map(s => s.id === studentId ? { ...s, tier: newTier, overall_score: newScore } : s));
+    
+    const { error } = await supabase.from("profiles").update({ tier: newTier, overall_score: newScore }).eq("id", studentId);
+    if (error) {
+      showToast("Failed to update tier.");
+      loadStudents(); // revert
+    } else {
+      showToast(`Tier updated to ${newTier}. Score adjusted.`);
+    }
   }
 
   function showToast(msg: string) {
@@ -355,13 +388,25 @@ export default function MyStudentsPage() {
                 </div>
               </div>
 
-              {/* Score Badge */}
-              <div className="flex items-center gap-2">
-                {student.overall_score > 0 && (
-                  <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 font-black text-sm flex items-center justify-center">
-                    {student.overall_score}
-                  </div>
-                )}
+              {/* Score Badge & Tier Select */}
+              <div className="flex items-center gap-3">
+                <div className="flex flex-col items-end">
+                  <select 
+                    value={student.tier}
+                    onChange={(e) => handleTierChange(student.id, student.tier, e.target.value as PlayerTier, student.overall_score)}
+                    className="text-[10px] font-bold uppercase tracking-widest bg-slate-50 border border-slate-200 rounded-md px-2 py-1 outline-none focus:border-emerald-400 cursor-pointer text-slate-700"
+                    style={{ color: RANK_TIERS[student.tier]?.color || '#10B981' }}
+                  >
+                    {Object.keys(RANK_TIERS).map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                  {student.overall_score > 0 && (
+                    <div className="text-[10px] text-slate-500 font-bold mt-1">
+                      Score: {(student.overall_score / 10).toFixed(1)}/10
+                    </div>
+                  )}
+                </div>
 
                 {/* Remove button */}
                 <button

@@ -10,6 +10,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import RadarChart from "@/components/RadarChart";
+import AISummaryFeedback from "@/components/AISummaryFeedback";
 import { SKILL_METRICS, getRankTier } from "@/lib/constants";
 import {
   IconClipboard, IconTarget, IconActivity, IconStar,
@@ -167,7 +168,7 @@ export default function ReportCardPage() {
           <div className="text-center flex-shrink-0">
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black shadow-md border-2"
               style={{ background: rank.bgColor, color: rank.color, borderColor: rank.borderColor }}>
-              {Math.round(overallAvg)}
+              {(overallAvg / 10).toFixed(1)}
             </div>
             <div className="text-[10px] font-black mt-1 uppercase" style={{ color: rank.color }}>{rank.label}</div>
           </div>
@@ -194,7 +195,7 @@ export default function ReportCardPage() {
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-bold text-slate-700">{skill.fullLabel}</span>
                     <span className={`text-sm font-black ${skill.avg !== null ? 'text-slate-900' : 'text-slate-400 italic'}`}>
-                      {skill.avg !== null ? skill.avg : 'N/A'}
+                      {skill.avg !== null ? (skill.avg / 10).toFixed(1) : 'N/A'}
                     </span>
                   </div>
                   <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
@@ -235,7 +236,7 @@ export default function ReportCardPage() {
             <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">Goals Achieved</div>
           </div>
           <div className="text-center p-4 bg-amber-50 rounded-xl">
-            <div className="text-2xl font-black text-amber-600">{Math.round(overallAvg)}</div>
+            <div className="text-2xl font-black text-amber-600">{(overallAvg / 10).toFixed(1)}</div>
             <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">Overall Rating</div>
           </div>
         </div>
@@ -288,6 +289,7 @@ export default function ReportCardPage() {
                 — {coachName} • {new Date(evaluations[0].created_at).toLocaleDateString()}
               </p>
             </div>
+            <AISummaryFeedback evaluationId={evaluations[0].id} role="player" />
           </div>
         )}
 
