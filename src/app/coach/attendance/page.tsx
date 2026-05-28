@@ -13,7 +13,8 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import {
   IconCheck, IconTimer, IconPlay, IconClipboard, IconTarget,
-  IconActivity, IconShield, IconSquare, IconZap, IconGrid, IconUsers, IconArrowLeft, IconPause
+  IconActivity, IconShield, IconSquare, IconZap, IconGrid, IconUsers, IconArrowLeft, IconPause,
+  IconPlus, IconX, IconEdit, IconSave
 } from "@/components/Icons";
 
 /* ── Drill Library ── */
@@ -35,7 +36,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Tactical: "#8B5CF6", Goalkeeping: "#06B6D4", "Match Prep": "#10B981",
 };
 
-type Drill = typeof SEED_DRILLS[number];
+type Drill = typeof SEED_DRILLS[number] & { coach_id?: string };
 type AttendanceStatus = "Present" | "Late" | "Absent" | null;
 // 3 steps: "setup" | "attendance" | "running"
 type FlowStep = "idle" | "setup" | "attendance" | "running";
@@ -61,6 +62,12 @@ function AttendanceContent() {
 
   // Flow step
   const [step, setStep] = useState<FlowStep>("idle");
+
+  /* ── Drill Modal & Editing ── */
+  const [drillLibrary, setDrillLibrary] = useState<Drill[]>(SEED_DRILLS);
+  const [showDrillModal, setShowDrillModal] = useState(false);
+  const [editingDrill, setEditingDrill] = useState<Drill | null>(null);
+  const [isEditingMode, setIsEditingMode] = useState(false);
 
   // Step 1 — Setup
   const [sessionType, setSessionType] = useState<string>(SESSION_TYPES[0].key);
@@ -141,6 +148,21 @@ function AttendanceContent() {
       setUpcomingSessionRSVPs({ title: nextSession.title, count: count || 0 });
     }
 
+    // Fetch custom drills
+    const { data: customDrills } = await supabase.from("drills").select("*");
+    if (customDrills && customDrills.length > 0) {
+      const formatted = customDrills.map(d => ({
+        id: d.id,
+        title: d.title,
+        category: d.category || "Passing",
+        duration_mins: d.duration_mins || 15,
+        difficulty: d.difficulty || "Beginner",
+        description: d.description || "",
+        coach_id: d.coach_id
+      }));
+      setDrillLibrary([...SEED_DRILLS, ...formatted.filter(d => !SEED_DRILLS.some(s => s.title === d.title))]);
+    }
+
     setLoading(false);
   }
 
@@ -159,8 +181,78 @@ function AttendanceContent() {
   const toggleDrill = (d: Drill) => setSelectedDrills(prev => prev.find(x => x.id === d.id) ? prev.filter(x => x.id !== d.id) : [...prev, d]);
   const isDrillSelected = (id: string) => selectedDrills.some(d => d.id === id);
   const totalDrillMins = selectedDrills.reduce((s, d) => s + d.duration_mins, 0);
-  const categories = ["All", ...Array.from(new Set(SEED_DRILLS.map(d => d.category)))];
-  const filteredDrills = drillFilter === "All" ? SEED_DRILLS : SEED_DRILLS.filter(d => d.category === drillFilter);
+  const categories = ["All", ...Array.from(new Set(drillLibrary.map(d => d.category)))];
+  const filteredDrills = drillFilter === "All" ? drillLibrary : drillLibrary.filter(d => d.category === drillFilter);
+
+  const handleDrillClick = (drill: Drill) => {
+    setEditingDrill(drill);
+    setIsEditingMode(false);
+    setShowDrillModal(true);
+  };
+
+  const handleCreateDrill = () => {
+    setEditingDrill({
+      id: `new_${Date.now()}`,
+      title: "",
+      category: "Passing",
+      duration_mins: 15,
+      difficulty: "Beginner",
+      description: "",
+      coach_id: user?.id
+    });
+    setIsEditingMode(true);
+    setShowDrillModal(true);
+  };
+
+  const handleSaveDrill = async () => {
+    if (!editingDrill) return;
+    
+    const isNew = editingDrill.id.startsWith("new_");
+    let drillToSave = { ...editingDrill };
+    let finalId = drillToSave.id;
+    
+    if (!isNew && !drillToSave.coach_id && isEditingMode) {
+       finalId = `custom_${Date.now()}`;
+       drillToSave.coach_id = user?.id;
+    }
+
+    try {
+      if (user) {
+         const isInsert = finalId.startsWith("new_") || finalId.startsWith("custom_");
+         const payload = {
+           title: drillToSave.title,
+           category: drillToSave.category,
+           duration_mins: drillToSave.duration_mins,
+           difficulty: drillToSave.difficulty,
+           description: drillToSave.description,
+           coach_id: user.id
+         };
+
+         if (isInsert) {
+           const { data } = await supabase.from("drills").insert(payload).select().single();
+           if (data) finalId = data.id;
+         } else {
+           await supabase.from("drills").update(payload).eq("id", finalId);
+         }
+      }
+    } catch (err) { console.error(err); }
+
+    drillToSave.id = finalId;
+
+    setDrillLibrary(prev => {
+      const idx = prev.findIndex(d => d.id === drillToSave.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = drillToSave;
+        return next;
+      }
+      return [...prev, drillToSave];
+    });
+
+    setEditingDrill(null);
+    setShowDrillModal(false);
+    showToastMsg("Drill saved successfully!");
+  };
 
   /* ── Step transitions ── */
   function proceedToAttendance() {
@@ -252,7 +344,8 @@ function AttendanceContent() {
       if (sessionId) {
         setTimeout(() => {
           if (confirm("Session saved! Evaluate players now?")) {
-            router.push(`/coach/evaluate?session_id=${sessionId}`);
+            const categories = Array.from(new Set(selectedDrills.map(d => d.category))).join(",");
+            router.push(`/coach/evaluate?session_id=${sessionId}&categories=${encodeURIComponent(categories)}`);
           }
         }, 500);
       }
@@ -369,7 +462,7 @@ function AttendanceContent() {
           </div>
 
           {/* Drill Library */}
-          <div>
+          <div className="flex items-center justify-between">
             <button onClick={() => setShowDrills(!showDrills)}
               className="flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-emerald-600 transition-colors">
               <IconClipboard size={14} />
@@ -379,6 +472,12 @@ function AttendanceContent() {
                   {selectedDrills.length} selected ({totalDrillMins}m)
                 </span>
               )}
+            </button>
+            <button
+              onClick={handleCreateDrill}
+              className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors shadow-sm"
+            >
+              <IconPlus size={14} /> Create Session/Drill
             </button>
           </div>
 
@@ -400,7 +499,7 @@ function AttendanceContent() {
                   const sel = isDrillSelected(drill.id);
                   const clr = CATEGORY_COLORS[drill.category] || "#94A3B8";
                   return (
-                    <div key={drill.id} onClick={() => toggleDrill(drill)}
+                    <div key={drill.id} onClick={() => handleDrillClick(drill)}
                       className={`p-4 rounded-xl border-2 cursor-pointer transition-all relative ${sel ? "border-emerald-500 bg-emerald-50/60 shadow-sm" : "border-slate-200 hover:border-slate-300 bg-white"}`}>
                       {sel && <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center"><IconCheck size={11} /></div>}
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold uppercase mb-2" style={{ background: `${clr}15`, color: clr, border: `1px solid ${clr}30` }}>
@@ -678,6 +777,170 @@ function AttendanceContent() {
         <div className="fixed bottom-6 right-6 bg-emerald-600 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 z-50 font-bold text-sm">
           <IconCheck size={14} color="white" />
           {toast}
+        </div>
+      )}
+      {/* ════════════════════════════════════════
+          DRILL MODAL
+          ════════════════════════════════════════ */}
+      {showDrillModal && editingDrill && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-fade-up">
+            
+            {/* Header */}
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <h3 className="font-bold text-slate-900 flex items-center gap-2" style={{ fontFamily: "var(--font-heading)" }}>
+                {isEditingMode ? (editingDrill.id.startsWith("new_") ? "Create New Card" : "Edit Card") : "Card Details"}
+              </h3>
+              <button 
+                onClick={() => setShowDrillModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-colors"
+              >
+                <IconX size={16} />
+              </button>
+            </div>
+            
+            {/* Body */}
+            <div className="p-5 md:p-6 overflow-y-auto custom-scrollbar flex-1">
+              {isEditingMode ? (
+                // EDIT MODE
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Drill Title</label>
+                    <input 
+                      type="text" 
+                      className="input w-full" 
+                      placeholder="e.g. Pep's Rondo" 
+                      value={editingDrill.title} 
+                      onChange={e => setEditingDrill({...editingDrill, title: e.target.value})} 
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Category</label>
+                      <select 
+                        className="input w-full" 
+                        value={editingDrill.category} 
+                        onChange={e => setEditingDrill({...editingDrill, category: e.target.value})}
+                      >
+                        {["Passing", "Shooting", "Fitness", "Tactical", "Goalkeeping", "Match Prep"].map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Difficulty</label>
+                      <select 
+                        className="input w-full" 
+                        value={editingDrill.difficulty} 
+                        onChange={e => setEditingDrill({...editingDrill, difficulty: e.target.value})}
+                      >
+                        <option value="Beginner">Beginner</option>
+                        <option value="Intermediate">Intermediate</option>
+                        <option value="Advanced">Advanced</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Duration (Mins)</label>
+                    <input 
+                      type="number" 
+                      className="input w-full" 
+                      value={editingDrill.duration_mins} 
+                      onChange={e => setEditingDrill({...editingDrill, duration_mins: parseInt(e.target.value) || 0})} 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Description</label>
+                    <textarea 
+                      className="textarea w-full min-h-[100px]" 
+                      value={editingDrill.description} 
+                      onChange={e => setEditingDrill({...editingDrill, description: e.target.value})} 
+                    />
+                  </div>
+                  {!editingDrill.coach_id && !editingDrill.id.startsWith("new_") && (
+                    <div className="p-3 bg-amber-50 text-amber-700 rounded-xl text-xs font-medium border border-amber-200">
+                      You are editing a template. Saving will create a new custom card in your library.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // VIEW MODE
+                <div className="space-y-5">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold uppercase">
+                        {editingDrill.category}
+                      </span>
+                      <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold uppercase">
+                        {editingDrill.difficulty}
+                      </span>
+                      {!editingDrill.coach_id && (
+                        <span className="px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-100 rounded-lg text-[10px] font-bold uppercase">
+                          Template
+                        </span>
+                      )}
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900">{editingDrill.title}</h2>
+                    <div className="flex items-center gap-1 text-xs font-bold text-slate-400 mt-1">
+                      <IconTimer size={14} /> {editingDrill.duration_mins} mins
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 mb-1">Description</h4>
+                    <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      {editingDrill.description || "No description provided."}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
+              {isEditingMode ? (
+                <>
+                  <button 
+                    onClick={() => {
+                      if (editingDrill.id.startsWith("new_")) setShowDrillModal(false);
+                      else setIsEditingMode(false);
+                    }} 
+                    className="px-4 py-2 text-slate-500 font-bold text-sm hover:bg-slate-200 rounded-xl transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleSaveDrill}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500 text-white font-bold text-sm rounded-xl hover:bg-emerald-600 shadow-sm transition-colors"
+                  >
+                    <IconSave size={16} /> Save Card
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => setIsEditingMode(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-50 shadow-sm transition-colors"
+                  >
+                    <IconEdit size={16} /> Edit
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      toggleDrill(editingDrill);
+                      setShowDrillModal(false);
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 font-bold text-sm rounded-xl shadow-sm transition-colors ${
+                      isDrillSelected(editingDrill.id)
+                        ? "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+                        : "bg-slate-900 text-white hover:bg-black"
+                    }`}
+                  >
+                    {isDrillSelected(editingDrill.id) ? "Remove from Session" : "Add to Session"}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

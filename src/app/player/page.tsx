@@ -56,6 +56,12 @@ export default function PlayerDashboard() {
   // Live session for parents
   const [liveSession, setLiveSession] = useState<{ title: string; startTime: string; elapsed: number } | null>(null);
 
+  // Practice Loop State
+  const [practiceModalGoal, setPracticeModalGoal] = useState<any>(null);
+  const [practiceText, setPracticeText] = useState("");
+  const [submittingPractice, setSubmittingPractice] = useState(false);
+  const [practiceCelebration, setPracticeCelebration] = useState<{ xp: number, msg: string } | null>(null);
+
   useEffect(() => {
     async function loadData() {
       if (!user) return;
@@ -233,6 +239,44 @@ export default function PlayerDashboard() {
     setGoals(goals.map(g => g.id === goalId ? { ...g, status: newStatus } : g));
   };
 
+  const handleQuestClick = (g: any) => {
+    if (g.status === "achieved") {
+      // Allow undo instantly
+      toggleGoal(g.id);
+    } else {
+      // Open Practice Logger
+      setPracticeModalGoal(g);
+      setPracticeText("");
+    }
+  };
+
+  const submitPractice = async () => {
+    if (!practiceText || !practiceModalGoal || !user) return;
+    setSubmittingPractice(true);
+    
+    // Simulate AI Parsing & Processing
+    await new Promise(r => setTimeout(r, 1200));
+    
+    await supabase.from("goals").update({ status: "achieved" }).eq("id", practiceModalGoal.id);
+    setGoals(goals.map(g => g.id === practiceModalGoal.id ? { ...g, status: "achieved" } : g));
+    
+    // Log practice to coach via messages
+    if (coachProfile?.id) {
+      await supabase.from("messages").insert({
+        sender_id: user.id,
+        receiver_id: coachProfile.id,
+        content: `[PRACTICE LOGGED] Quest: ${practiceModalGoal.title}\nPlayer Log: "${practiceText}"`
+      });
+    }
+
+    setSubmittingPractice(false);
+    setPracticeModalGoal(null);
+    
+    // Show AI Celebration
+    setPracticeCelebration({ xp: Math.floor(Math.random() * 50) + 50, msg: "Great dedication! Keep the streak going." });
+    setTimeout(() => setPracticeCelebration(null), 4000);
+  };
+
   const handleInvite = async () => {
     try {
       const inviteUrl = `${window.location.origin}/register?ref=${user?.id?.slice(0,8) || 'kickxpro'}`;
@@ -381,7 +425,69 @@ export default function PlayerDashboard() {
         <StatCard value={stats.streak.toString()} label="Day Streak" icon={<IconFire />} accentColor="#F59E0B" delay={0.25} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Action Quests (AI & Coach Goals) - Moved to Top */}
+      <div className="card-static p-0 overflow-hidden border-2 border-emerald-100">
+        <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-4 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/4"></div>
+          <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2 relative z-10">
+            <IconTarget size={18} color="white" /> Action Quests
+          </h3>
+          <p className="text-[10px] text-emerald-50 font-bold opacity-90 mt-1 relative z-10">
+            Complete these tasks assigned by your coach to level up your game.
+          </p>
+        </div>
+        
+        <div className="p-4 bg-white grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {goals.length === 0 ? (
+            <div className="text-center py-6 col-span-full">
+              <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-2 border border-slate-100">
+                <IconTarget size={20} color="#94A3B8" />
+              </div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No Active Quests</p>
+              <p className="text-[10px] text-slate-400 mt-1">Play hard! Your coach will assign quests soon.</p>
+            </div>
+          ) : goals.map((g) => {
+            const isDone = g.status === "achieved";
+            let catColor = "text-slate-500 bg-slate-100 border-slate-200";
+            if (g.category === "technical") catColor = "text-blue-600 bg-blue-50 border-blue-200";
+            if (g.category === "tactical") catColor = "text-purple-600 bg-purple-50 border-purple-200";
+            if (g.category === "physical") catColor = "text-orange-600 bg-orange-50 border-orange-200";
+            
+            return (
+              <button
+                key={g.id}
+                onClick={() => handleQuestClick(g)}
+                className={`w-full flex items-start gap-3 p-3 rounded-xl border-2 transition-all group relative overflow-hidden ${
+                  isDone ? 'bg-emerald-50/50 border-emerald-100 opacity-70' : 'bg-white border-slate-100 hover:border-emerald-200 hover:shadow-md'
+                }`}
+              >
+                {isDone && <div className="absolute inset-0 bg-emerald-100/30 animate-pulse pointer-events-none"></div>}
+                
+                <div className={`mt-0.5 w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all shrink-0 relative z-10 ${
+                  isDone ? 'bg-emerald-500 border-emerald-500 text-white shadow-inner scale-110' : 'border-slate-300 bg-white group-hover:border-emerald-400 group-hover:bg-emerald-50'
+                }`}>
+                  {isDone && <IconCheck size={14} />}
+                </div>
+                
+                <div className="flex-1 text-left relative z-10">
+                  <span className={`text-sm font-bold transition-colors block leading-tight ${isDone ? 'text-emerald-700 line-through decoration-emerald-300/50' : 'text-slate-800 group-hover:text-emerald-700'}`}>
+                    {g.title}
+                  </span>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${isDone ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : catColor}`}>
+                      {g.category || 'General'}
+                    </span>
+                    {!isDone && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Log Practice →</span>}
+                    {isDone && <span className="text-[9px] font-black text-emerald-600">Quest Completed! +50 XP</span>}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-4">
         
         {/* Left Col: Radar & Progress (2 cols) */}
         <div className="lg:col-span-2 space-y-8">
@@ -549,73 +655,7 @@ export default function PlayerDashboard() {
             </div>
           </div>
 
-          {/* Action Quests (AI & Coach Goals) */}
-          <div className="card-static p-0 overflow-hidden border-2 border-emerald-100">
-            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-4 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/4"></div>
-              <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2 relative z-10">
-                <IconTarget size={18} color="white" /> Action Quests
-              </h3>
-              <p className="text-[10px] text-emerald-50 font-bold opacity-90 mt-1 relative z-10">
-                Complete these tasks assigned by your coach to level up your game.
-              </p>
-            </div>
-            
-            <div className="p-4 space-y-3 bg-white">
-              {goals.length === 0 ? (
-                <div className="text-center py-6">
-                  <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-2 border border-slate-100">
-                    <IconTarget size={20} color="#94A3B8" />
-                  </div>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No Active Quests</p>
-                  <p className="text-[10px] text-slate-400 mt-1">Play hard! Your coach will assign quests soon.</p>
-                </div>
-              ) : goals.map((g) => {
-                const isDone = g.status === "achieved";
-                
-                // Color map by category
-                let catColor = "text-slate-500 bg-slate-100 border-slate-200";
-                if (g.category === "technical") catColor = "text-blue-600 bg-blue-50 border-blue-200";
-                if (g.category === "tactical") catColor = "text-purple-600 bg-purple-50 border-purple-200";
-                if (g.category === "physical") catColor = "text-orange-600 bg-orange-50 border-orange-200";
-                
-                return (
-                  <button
-                    key={g.id}
-                    onClick={() => toggleGoal(g.id)}
-                    className={`w-full flex items-start gap-3 p-3 rounded-xl border-2 transition-all group relative overflow-hidden ${
-                      isDone 
-                        ? 'bg-emerald-50/50 border-emerald-100 opacity-70' 
-                        : 'bg-white border-slate-100 hover:border-emerald-200 hover:shadow-md'
-                    }`}
-                  >
-                    {isDone && <div className="absolute inset-0 bg-emerald-100/30 animate-pulse pointer-events-none"></div>}
-                    
-                    <div className={`mt-0.5 w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all shrink-0 relative z-10 ${
-                      isDone 
-                        ? 'bg-emerald-500 border-emerald-500 text-white shadow-inner scale-110' 
-                        : 'border-slate-300 bg-white group-hover:border-emerald-400 group-hover:bg-emerald-50'
-                    }`}>
-                      {isDone && <IconCheck size={14} />}
-                    </div>
-                    
-                    <div className="flex-1 text-left relative z-10">
-                      <span className={`text-sm font-bold transition-colors block leading-tight ${isDone ? 'text-emerald-700 line-through decoration-emerald-300/50' : 'text-slate-800 group-hover:text-emerald-700'}`}>
-                        {g.title}
-                      </span>
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${isDone ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : catColor}`}>
-                          {g.category || 'General'}
-                        </span>
-                        {!isDone && <span className="text-[9px] font-bold text-slate-400">Tap to complete</span>}
-                        {isDone && <span className="text-[9px] font-black text-emerald-600">Quest Completed! +50 XP</span>}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {/* Action Quests moved to top of dashboard */}
 
           {/* Coach Rating */}
           <div className="card-static p-6 border-2 border-transparent hover:border-amber-100 transition-colors">
@@ -690,6 +730,7 @@ export default function PlayerDashboard() {
         </div>
       )}
 
+      {/* FAQ Modal */}
       {showFAQ && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowFAQ(false)}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 md:p-8 animate-scale-in relative border border-slate-100" onClick={e => e.stopPropagation()}>
@@ -719,6 +760,60 @@ export default function PlayerDashboard() {
             </div>
 
             <button onClick={() => setShowFAQ(false)} className="btn-primary w-full mt-6 py-3">Got it!</button>
+          </div>
+        </div>
+      )}
+
+      {/* Practice Log Modal */}
+      {practiceModalGoal && (
+        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={() => !submittingPractice && setPracticeModalGoal(null)}>
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl animate-fade-up" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-emerald-50">
+              <IconTarget size={24} />
+            </div>
+            <h3 className="text-xl font-black text-center text-slate-900 mb-2">Log Your Practice</h3>
+            <p className="text-center text-xs text-slate-500 font-medium mb-6">Tell the AI what you did for the quest: <br/><strong className="text-emerald-700">{practiceModalGoal.title}</strong></p>
+            
+            <textarea 
+              className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 text-sm font-medium text-slate-700 focus:border-emerald-500 focus:ring-0 transition-colors min-h-[120px]"
+              placeholder="e.g. I spent 20 minutes doing cone dribbling with my weaker foot..."
+              value={practiceText}
+              onChange={e => setPracticeText(e.target.value)}
+            />
+            
+            <div className="flex gap-3 mt-6">
+              <button 
+                onClick={() => setPracticeModalGoal(null)}
+                disabled={submittingPractice}
+                className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={submitPractice}
+                disabled={submittingPractice || !practiceText.trim()}
+                className="flex-[2] py-3 rounded-xl font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-md shadow-emerald-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {submittingPractice ? "Analyzing..." : "Submit Log"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Celebration Toast */}
+      {practiceCelebration && (
+        <div className="fixed inset-0 z-[70] pointer-events-none flex items-center justify-center">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-fade-in" />
+          <div className="bg-white p-8 rounded-3xl shadow-2xl animate-scale-in text-center relative z-10 max-w-sm mx-4 border-4 border-emerald-50">
+            <div className="text-6xl mb-4 animate-bounce">🎉</div>
+            <h3 className="text-3xl font-black text-slate-900 mb-2">+{practiceCelebration.xp} XP</h3>
+            <p className="text-sm font-bold text-emerald-600 bg-emerald-50 px-4 py-2 rounded-xl mb-4">
+              {practiceCelebration.msg}
+            </p>
+            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+              <div className="bg-emerald-500 h-full w-full rounded-full animate-progress" />
+            </div>
           </div>
         </div>
       )}

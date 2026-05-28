@@ -579,7 +579,7 @@ export default function SessionsHubPage() {
               onClick={handleCreateDrill}
               className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors shadow-sm w-max"
             >
-              <IconPlus size={16} /> Create Card
+              <IconPlus size={16} /> Create Session/Drill
             </button>
           </div>
 

@@ -184,7 +184,8 @@ export default function MyStudentsPage() {
     const diff = newIndex - oldIndex;
     
     // If upgrading, score drops by 20 per tier level. If demoting, score increases.
-    let newScore = currentScore - (diff * 20);
+    const scoreDiff = diff * 20;
+    let newScore = currentScore - scoreDiff;
     
     // Ensure bounds (0-100 logic roughly)
     if (newScore < 0) newScore = 0;
@@ -198,7 +199,20 @@ export default function MyStudentsPage() {
       showToast("Failed to update tier.");
       loadStudents(); // revert
     } else {
-      showToast(`Tier updated to ${newTier}. Score adjusted.`);
+      // Adjust all historical evaluations so radars and report cards scale down/up automatically
+      const { data: evals } = await supabase.from("evaluations").select("*").eq("player_id", studentId);
+      if (evals && evals.length > 0) {
+        for (const e of evals) {
+          if (e.scores) {
+            const updatedScores: Record<string, number> = { ...e.scores };
+            for (const key in updatedScores) {
+               updatedScores[key] = Math.max(0, Math.min(100, updatedScores[key] - scoreDiff));
+            }
+            await supabase.from("evaluations").update({ scores: updatedScores }).eq("id", e.id);
+          }
+        }
+      }
+      showToast(`Tier updated to ${newTier}. Historical scores scaled by ${-scoreDiff}.`);
     }
   }
 

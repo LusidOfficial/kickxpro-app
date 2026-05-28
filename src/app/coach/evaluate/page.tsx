@@ -63,6 +63,25 @@ function EvaluateContent() {
   const [loading, setLoading] = useState(true);
   const [generatingSummary, setGeneratingSummary] = useState(false);
 
+  const categoriesParam = searchParams?.get("categories");
+  const drillCategories = useMemo(() => categoriesParam ? categoriesParam.split(",") : [], [categoriesParam]);
+
+  // Generate a custom default eval based on drill categories played
+  const customDefaultEval = useMemo(() => {
+    const scores = { ...DEFAULT_EVAL.scores };
+    const strengths = [...DEFAULT_EVAL.strengths];
+    
+    if (drillCategories.includes("Passing")) { scores.passing = Math.max(scores.passing, 75); strengths.push("Vision", "Ball Control"); }
+    if (drillCategories.includes("Shooting")) { scores.shooting = Math.max(scores.shooting, 75); strengths.push("Finishing"); }
+    if (drillCategories.includes("Fitness")) { scores.physical = Math.max(scores.physical, 75); scores.pace = Math.max(scores.pace, 70); }
+    if (drillCategories.includes("Tactical")) { scores.defending = Math.max(scores.defending, 70); strengths.push("Positioning"); }
+    if (drillCategories.includes("Match Prep")) { 
+       scores.passing += 5; scores.shooting += 5; scores.dribbling += 5; 
+    }
+    
+    return { ...DEFAULT_EVAL, scores, strengths: Array.from(new Set(strengths)).slice(0, 3) };
+  }, [drillCategories]);
+
   useEffect(() => {
     async function fetchPlayers() {
       if (!user) return;
@@ -87,12 +106,12 @@ function EvaluateContent() {
   }, [user]);
 
   // Initialize or get current player data
-  const currentData = evaluations[activePlayerId] || DEFAULT_EVAL;
+  const currentData = evaluations[activePlayerId] || customDefaultEval;
 
   const updateCurrentData = (updates: Partial<EvalData>) => {
     setEvaluations(prev => ({
       ...prev,
-      [activePlayerId]: { ...(prev[activePlayerId] || DEFAULT_EVAL), ...updates }
+      [activePlayerId]: { ...(prev[activePlayerId] || customDefaultEval), ...updates }
     }));
   };
 
@@ -541,14 +560,36 @@ function EvaluateContent() {
         </div>
       </div>
 
-      {/* Floating Save Button */}
-      <div className="fixed bottom-6 md:bottom-8 left-1/2 -translate-x-1/2 z-40 transition-transform">
+      {/* Floating Save & Navigate (Stepper) */}
+      <div className="fixed bottom-6 md:bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-slate-900 p-1.5 md:p-2 rounded-full shadow-2xl transition-transform">
+        <button
+          onClick={() => {
+            const idx = players.findIndex(p => p.id === activePlayerId);
+            if (idx > 0) { setActivePlayerId(players[idx - 1].id); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+          }}
+          disabled={players.findIndex(p => p.id === activePlayerId) === 0}
+          className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-white disabled:opacity-30 hover:bg-white/10 transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        
         <button
           onClick={handleSave}
-          className="flex items-center gap-2 md:gap-3 px-6 md:px-8 py-3 md:py-4 rounded-full bg-slate-900 hover:bg-black text-white text-sm md:text-base font-bold tracking-wide transition-all shadow-2xl active:scale-95"
+          className="flex items-center justify-center gap-2 px-6 md:px-8 h-10 md:h-12 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white text-sm md:text-base font-bold tracking-wide transition-all active:scale-95 whitespace-nowrap"
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          <IconClipboard size={18} color="white" /> Save {players.find(p => p.id === activePlayerId)?.name.split(" ")[0]}'s Report
+          <IconClipboard size={16} color="white" /> Save {players.find(p => p.id === activePlayerId)?.name.split(" ")[0]}
+        </button>
+        
+        <button
+          onClick={() => {
+            const idx = players.findIndex(p => p.id === activePlayerId);
+            if (idx < players.length - 1) { setActivePlayerId(players[idx + 1].id); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+          }}
+          disabled={players.findIndex(p => p.id === activePlayerId) === players.length - 1}
+          className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-white disabled:opacity-30 hover:bg-white/10 transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
         </button>
       </div>
 
