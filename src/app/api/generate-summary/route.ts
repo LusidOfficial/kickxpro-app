@@ -43,7 +43,8 @@ export async function POST(request: Request) {
     });
 
     // Remove markdown code blocks if the model still outputs them
-    const cleanJsonStr = response.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const textResp = response.text || "{}";
+    const cleanJsonStr = textResp.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const parsed = JSON.parse(cleanJsonStr);
 
     return NextResponse.json({ summary: parsed.summary, suggestedGoals: parsed.suggestedGoals });

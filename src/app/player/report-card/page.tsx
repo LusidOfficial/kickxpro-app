@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import RadarChart from "@/components/RadarChart";
 import AISummaryFeedback from "@/components/AISummaryFeedback";
-import { SKILL_METRICS, getRankTier } from "@/lib/constants";
+import { SKILL_METRICS, RANK_TIERS, PlayerTier } from "@/lib/constants";
 import {
   IconClipboard, IconTarget, IconActivity, IconStar,
   IconCheck, IconTrendingUp, IconAward, IconUser
@@ -94,7 +94,7 @@ export default function ReportCardPage() {
   const ratedSkills = skillAverages.filter(s => s.avg !== null);
   const overallAvg = ratedSkills.length > 0 ? ratedSkills.reduce((s, t) => s + (t.avg || 0), 0) / ratedSkills.length : 0;
   const radarData = skillAverages.map(s => ({ label: s.label, value: s.avg !== null ? s.avg / 20 : 0 }));
-  const rank = getRankTier(overallAvg);
+  const rank = RANK_TIERS[(profile?.tier as PlayerTier) || 'Beginner'] || RANK_TIERS.Beginner;
   const attendanceRate = attendance.total > 0
     ? Math.round(((attendance.present + attendance.late) / attendance.total) * 100) : 0;
 
@@ -170,7 +170,7 @@ export default function ReportCardPage() {
               style={{ background: rank.bgColor, color: rank.color, borderColor: rank.borderColor }}>
               {(overallAvg / 10).toFixed(1)}
             </div>
-            <div className="text-[10px] font-black mt-1 uppercase" style={{ color: rank.color }}>{rank.label}</div>
+            <div className="text-[10px] font-black mt-1 uppercase" style={{ color: rank.color }}>{profile?.tier || 'Beginner'}</div>
           </div>
         </div>
 
