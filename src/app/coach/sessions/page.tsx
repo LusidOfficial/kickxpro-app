@@ -700,7 +700,6 @@ export default function SessionsHubPage() {
           )}
         </div>
       )}
-    </div>
 
       {/* ═══ DRILL MODAL ═══ */}
       {showDrillModal && editingDrill && (
