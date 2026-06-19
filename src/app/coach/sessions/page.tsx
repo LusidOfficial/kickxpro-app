@@ -275,12 +275,12 @@ export default function SessionsHubPage() {
   
   const totalSeconds = duration * 60;
   const elapsedSeconds = totalSeconds - timeLeft;
-  const timerProgress = (elapsedSeconds / totalSeconds) * 100;
-  const activeDrillColor = "#10B981"; // Default emerald
   
   // Determine current active drill based on elapsed time
   let currentActiveDrill = null;
   let currentDrillColor = "#10B981";
+  let currentDrillTimeLeft = timeLeft;
+  let currentDrillProgress = (elapsedSeconds / totalSeconds) * 100;
   
   if (selectedDrills.length > 0) {
     let accumulatedSeconds = 0;
@@ -290,6 +290,9 @@ export default function SessionsHubPage() {
       if (elapsedSeconds <= accumulatedSeconds) {
         currentActiveDrill = drill;
         currentDrillColor = CATEGORY_COLORS[drill.category] || "#10B981";
+        const drillElapsed = elapsedSeconds - (accumulatedSeconds - drillSeconds);
+        currentDrillTimeLeft = drillSeconds - drillElapsed;
+        currentDrillProgress = (drillElapsed / drillSeconds) * 100;
         break;
       }
     }
@@ -298,7 +301,7 @@ export default function SessionsHubPage() {
   // Calculate SVG stroke dashes for the ring segments (for aesthetics)
   const radius = 60;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (timerProgress / 100) * circumference;
+  const strokeDashoffset = circumference - (currentDrillProgress / 100) * circumference;
 
   return (
     <div className="max-w-6xl mx-auto pb-24 px-4 xl:px-0 opacity-0 animate-fade-up">
@@ -518,13 +521,18 @@ export default function SessionsHubPage() {
                   }, { accum: 0, elements: [] as JSX.Element[] }).elements}
                 </svg>
                 
-                <div className="text-center absolute flex flex-col items-center justify-center">
+                <div className="text-center absolute flex flex-col items-center justify-center w-full px-2">
                   <div className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight transition-colors duration-500" style={{ fontFamily: "var(--font-heading)", fontVariantNumeric: "tabular-nums", color: isTimerRunning ? currentDrillColor : '#0F172A' }}>
-                    {formatTime(timeLeft)}
+                    {formatTime(currentDrillTimeLeft)}
                   </div>
                   {currentActiveDrill ? (
-                    <div className="mt-2 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md truncate max-w-[120px]" style={{ background: `${currentDrillColor}15`, color: currentDrillColor }}>
-                      {currentActiveDrill.title}
+                    <div className="flex flex-col items-center mt-1">
+                      <div className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md truncate max-w-[140px]" style={{ background: `${currentDrillColor}15`, color: currentDrillColor }}>
+                        {currentActiveDrill.title}
+                      </div>
+                      <div className="mt-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-0.5 rounded-full">
+                        Total left: {formatTime(timeLeft)}
+                      </div>
                     </div>
                   ) : (
                     <div className="mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 py-0.5 rounded-md" style={{ background: '#F1F5F9' }}>

@@ -19,8 +19,6 @@ interface Message {
   timestamp: Date;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 const QUICK_PROMPTS = [
   { label: "Training Tips", prompt: "What are the best training drills I can do at home to improve my dribbling skills?", icon: <IconTarget size={14} /> },
   { label: "Nutrition", prompt: "What should a young football player eat before and after training for maximum performance?", icon: <IconActivity size={14} /> },
@@ -43,6 +41,11 @@ export default function PlayerAIAssistantPage() {
   const [apiStatus, setApiStatus] = useState<"online" | "offline" | "checking">("checking");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  async function checkBackendHealth() {
+    // The backend is now internal Next.js API, so it's always online if the app is running.
+    setApiStatus("online");
+  }
+
   useEffect(() => {
     checkBackendHealth();
   }, []);
@@ -51,59 +54,54 @@ export default function PlayerAIAssistantPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  async function checkBackendHealth() {
-    try {
-      const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(5000) });
-      if (res.ok) setApiStatus("online");
-      else setApiStatus("offline");
-    } catch {
-      setApiStatus("offline");
-    }
-  }
-
   async function sendMessage(content: string) {
-    if (!content.trim() || loading) return;
+    if (!content.trim() || loading || !user) return;
 
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       role: "user",
       content: content.trim(),
       timestamp: new Date(),
     };
+
+    const history = messages.map(m => ({ role: m.role, content: m.content }));
 
     setMessages(prev => [...prev, userMsg]);
     setInput("");
     setLoading(true);
 
     try {
-      // Add player context to the question
-      const contextualQuery = `[Player: ${profile?.full_name || "Unknown"}, Position: ${profile?.position || "MID"}] ${content.trim()}`;
-      const params = new URLSearchParams({ q: contextualQuery, web_search: "false" });
-      const res = await fetch(`${API_URL}/ask?${params}`, { signal: AbortSignal.timeout(30000) });
+      const res = await fetch(`/api/player-chat`, { 
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ message: content.trim(), history, playerId: user.id }),
+      });
 
       if (res.ok) {
         const data = await res.json();
         const assistantMsg: Message = {
-          id: (Date.now() + 1).toString(),
+          id: crypto.randomUUID(),
           role: "assistant",
           content: data.answer || "I couldn't generate a response. Try asking in a different way!",
-          sources: data.sources || [],
           timestamp: new Date(),
         };
         setMessages(prev => [...prev, assistantMsg]);
       } else {
+        const data = await res.json();
         setMessages(prev => [...prev, {
-          id: (Date.now() + 1).toString(),
+          id: crypto.randomUUID(),
           role: "assistant",
-          content: "⚠️ The AI backend returned an error. The backend server may need to be started. Ask your coach or admin to ensure the AI service is running.",
+          content: data.answer || "⚠️ The AI backend returned an error.",
           timestamp: new Date(),
         }]);
       }
     } catch {
       setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
+        id: crypto.randomUUID(),
         role: "assistant",
-        content: "⚠️ Could not connect to the AI service. This feature requires the backend server to be running. Please check with your coach.",
+        content: "⚠️ Could not connect to the AI service. Please check your internet connection.",
         timestamp: new Date(),
       }]);
     }

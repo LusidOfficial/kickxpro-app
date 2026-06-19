@@ -21,8 +21,6 @@ interface Message {
   timestamp: Date;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 const QUICK_PROMPTS = [
   { label: "Session Plan", prompt: "Generate a 60-minute training session plan for U-16 players focusing on passing and movement.", icon: <IconClipboard size={14} /> },
   { label: "Drill Ideas", prompt: "Suggest 3 defensive drills for players who struggle with positioning and tracking back.", icon: <IconTarget size={14} /> },
@@ -45,6 +43,11 @@ export default function CoachAIAssistantPage() {
   const [apiStatus, setApiStatus] = useState<"online" | "offline" | "checking">("checking");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  async function checkBackendHealth() {
+    // The backend is now internal Next.js API, so it's always online if the app is running.
+    setApiStatus("online");
+  }
+
   useEffect(() => {
     checkBackendHealth();
   }, []);
@@ -53,38 +56,35 @@ export default function CoachAIAssistantPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  async function checkBackendHealth() {
-    try {
-      const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(5000) });
-      if (res.ok) setApiStatus("online");
-      else setApiStatus("offline");
-    } catch {
-      setApiStatus("offline");
-    }
-  }
-
   async function sendMessage(content: string) {
     if (!content.trim() || loading) return;
 
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       role: "user",
       content: content.trim(),
       timestamp: new Date(),
     };
+
+    const history = messages.map(m => ({ role: m.role, content: m.content }));
 
     setMessages(prev => [...prev, userMsg]);
     setInput("");
     setLoading(true);
 
     try {
-      const params = new URLSearchParams({ q: content.trim(), web_search: "false" });
-      const res = await fetch(`${API_URL}/ask?${params}`, { signal: AbortSignal.timeout(30000) });
+      const res = await fetch(`/api/coach-chat`, { 
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ message: content.trim(), history }),
+      });
 
       if (res.ok) {
         const data = await res.json();
         const assistantMsg: Message = {
-          id: (Date.now() + 1).toString(),
+          id: crypto.randomUUID(),
           role: "assistant",
           content: data.answer || "I couldn't generate a response. Please try rephrasing your question.",
           sources: data.sources || [],
@@ -92,20 +92,20 @@ export default function CoachAIAssistantPage() {
         };
         setMessages(prev => [...prev, assistantMsg]);
       } else {
-        // Fallback: try calling Gemini directly via the ask endpoint
-        const fallbackMsg: Message = {
-          id: (Date.now() + 1).toString(),
+        const data = await res.json();
+        const errorMsg: Message = {
+          id: crypto.randomUUID(),
           role: "assistant",
-          content: "⚠️ The AI backend returned an error. Please make sure the backend server is running (`python app.py`) and data has been ingested (`POST /ingest`). You can check the backend status at the top of this page.",
+          content: data.answer || "⚠️ The AI backend returned an error.",
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, fallbackMsg]);
+        setMessages(prev => [...prev, errorMsg]);
       }
     } catch (err) {
       const errorMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: crypto.randomUUID(),
         role: "assistant",
-        content: "⚠️ Could not connect to the AI backend. Make sure the server is running at `" + API_URL + "`. Start it with:\n\n```\ncd backend\npython app.py\n```",
+        content: "⚠️ Could not connect to the AI API route. Please make sure you are connected to the internet.",
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMsg]);
