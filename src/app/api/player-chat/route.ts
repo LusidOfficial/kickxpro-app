@@ -33,6 +33,18 @@ export async function POST(request: Request) {
       .order("created_at", { ascending: false })
       .limit(2);
 
+    let coachName = "Your Coach";
+    if (evals && evals.length > 0 && evals[0].coach_id) {
+      const { data: coachData } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", evals[0].coach_id)
+        .single();
+      if (coachData && coachData.full_name) {
+        coachName = coachData.full_name;
+      }
+    }
+
     const { data: goals } = await supabase
       .from("goals")
       .select("title, category, status")
@@ -43,7 +55,7 @@ export async function POST(request: Request) {
     let contextStr = "No recent evaluation data found.";
     if (evals && evals.length > 0) {
       const latest = evals[0];
-      contextStr = `Latest Coach Evaluation (Date: ${new Date(latest.created_at).toLocaleDateString()}):
+      contextStr = `Latest Coach Evaluation (Date: ${new Date(latest.created_at).toLocaleDateString()}, Coach: ${coachName}):
 - Summary: ${latest.summary || "None"}
 - Strengths: ${(latest.strengths || []).join(", ") || "None"}
 - Focus Areas: ${(latest.focus_areas || []).join(", ") || "None"}
@@ -69,6 +81,7 @@ Your goal is to help the player improve, answer their questions about football, 
 You are encouraging, simple to understand, and speak directly to the player (a kid/teen). Use emojis.
 Do not use complicated jargon unless explaining it.
 Always reference their focus areas and active goals if relevant.
+When you give advice based on their evaluation, explicitly mention the coach's name (e.g., "Coach ${coachName} noted that you have great pace but need to work on...") to let the player know the source of the feedback.
 
 Here is the data from their coach:
 === COACH DATA ===
