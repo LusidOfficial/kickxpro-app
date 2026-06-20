@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
 let ai: GoogleGenAI | null = null;
@@ -25,8 +26,15 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
+    const authHeader = request.headers.get("Authorization");
+    const supabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+      { global: { headers: { Authorization: authHeader || '' } } }
+    );
+
     // Fetch the player's recent evaluations and active goals
-    const { data: evals } = await supabase
+    const { data: evals } = await supabaseClient
       .from("evaluations")
       .select("*")
       .eq("player_id", playerId)
@@ -35,7 +43,7 @@ export async function POST(request: Request) {
 
     let coachName = "Your Coach";
     if (evals && evals.length > 0 && evals[0].coach_id) {
-      const { data: coachData } = await supabase
+      const { data: coachData } = await supabaseClient
         .from("profiles")
         .select("full_name")
         .eq("id", evals[0].coach_id)

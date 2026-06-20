@@ -71,10 +71,14 @@ export default function PlayerAIAssistantPage() {
     setLoading(true);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const res = await fetch(`/api/player-chat`, { 
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` })
         },
         body: JSON.stringify({ message: content.trim(), history, playerId: user.id }),
       });
