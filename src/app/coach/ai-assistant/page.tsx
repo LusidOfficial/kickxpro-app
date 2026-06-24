@@ -82,7 +82,7 @@ export default function CoachAIAssistantPage() {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ message: content.trim(), history }),
+        body: JSON.stringify({ message: content.trim(), history, coachId: user?.id }),
       });
 
       if (res.ok) {
