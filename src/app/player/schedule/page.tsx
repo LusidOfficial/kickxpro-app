@@ -219,8 +219,9 @@ export default function PlayerSchedulePage() {
 
       {/* Week View */}
       {viewMode === "week" && (
-        <div className="grid grid-cols-7 gap-2 opacity-0 animate-fade-up" style={{ animationDelay: "0.15s", animationFillMode: "forwards" }}>
-          {weekDays.map((day, i) => {
+        <div className="overflow-x-auto pb-4 -mx-4 px-4 xl:mx-0 xl:px-0 opacity-0 animate-fade-up" style={{ animationDelay: "0.15s", animationFillMode: "forwards" }}>
+          <div className="grid grid-cols-7 gap-2 min-w-[600px]">
+            {weekDays.map((day, i) => {
             const daySessions = sessions.filter(s => s.session_date === day);
             const isToday = day === today;
             return (
@@ -255,6 +256,7 @@ export default function PlayerSchedulePage() {
               </div>
             );
           })}
+          </div>
         </div>
       )}
 
@@ -275,26 +277,28 @@ export default function PlayerSchedulePage() {
                 {upcomingSessions.map((session, i) => {
                   const typeConfig = SESSION_COLORS[session.session_type] || SESSION_COLORS.training;
                   return (
-                    <div key={session.id} className="card-static p-4 border-l-4 flex items-center gap-4 hover:shadow-md transition-all" style={{ borderLeftColor: typeConfig.color }}>
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ background: `${typeConfig.color}10` }}>
-                        {typeConfig.emoji}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-sm text-slate-900 truncate">{session.title}</div>
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase mt-0.5">
-                          <span>{new Date(session.session_date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
-                          <span>•</span>
-                          <span>{formatTime(session.start_time)}</span>
-                          <span>•</span>
-                          <span>{session.duration_mins} min</span>
+                    <div key={session.id} className="card-static p-4 border-l-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-md transition-all" style={{ borderLeftColor: typeConfig.color }}>
+                      <div className="flex items-start gap-4 flex-1">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ background: `${typeConfig.color}10` }}>
+                          {typeConfig.emoji}
                         </div>
-                        {session.notes && (
-                          <div className="mt-2 text-xs text-slate-500 line-clamp-2">
-                            <strong className="text-slate-700">Curriculum:</strong> {session.notes}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-sm text-slate-900 break-words whitespace-normal">{session.title}</div>
+                          <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-400 uppercase mt-0.5">
+                            <span>{new Date(session.session_date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+                            <span>•</span>
+                            <span>{formatTime(session.start_time)}</span>
+                            <span>•</span>
+                            <span>{session.duration_mins} min</span>
                           </div>
-                        )}
+                          {session.notes && (
+                            <div className="mt-2 text-xs text-slate-500 line-clamp-2">
+                              <strong className="text-slate-700">Curriculum:</strong> {session.notes}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex flex-col items-end gap-2">
+                      <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 w-full sm:w-auto mt-2 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                         <span className="text-[10px] font-bold px-2 py-1 rounded-lg" style={{ background: `${typeConfig.color}10`, color: typeConfig.color }}>
                           {typeConfig.label}
                         </span>

@@ -91,6 +91,11 @@ Do not use complicated jargon unless explaining it.
 Always reference their focus areas and active goals if relevant.
 When you give advice based on their evaluation, explicitly mention the coach's name (e.g., "Coach ${coachName} noted that you have great pace but need to work on...") to let the player know the source of the feedback.
 
+IMPORTANT RULE — YouTube Drill Links:
+Whenever you suggest a specific drill or exercise (e.g., "Wall Passes", "Cone Dribbling", "Rondo"), ALWAYS include a YouTube search link so the player can watch a video tutorial. Format it as a clickable markdown link like this:
+🎥 [Watch Wall Passes Drill on YouTube](https://www.youtube.com/results?search_query=football+wall+passes+drill+for+beginners)
+Make the search query specific to youth football. Include at least one YouTube link per drill you suggest.
+
 Here is the data from their coach:
 === COACH DATA ===
 ${contextStr}

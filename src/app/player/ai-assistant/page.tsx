@@ -20,10 +20,10 @@ interface Message {
 }
 
 const QUICK_PROMPTS = [
-  { label: "Training Tips", prompt: "What are the best training drills I can do at home to improve my dribbling skills?", icon: <IconTarget size={14} /> },
+  { label: "Coach's Advice", prompt: "What should I practice based on my Coach's latest evaluation? Give me specific drills I can do today.", icon: <IconStar size={14} /> },
+  { label: "Watch Drills", prompt: "Based on my focus areas from my coach, suggest 3 drills I can practice at home with YouTube links to watch.", icon: <IconTarget size={14} /> },
   { label: "Nutrition", prompt: "What should a young football player eat before and after training for maximum performance?", icon: <IconActivity size={14} /> },
-  { label: "Mental Game", prompt: "How can I improve my focus and mental toughness during competitive matches?", icon: <IconStar size={14} /> },
-  { label: "Growth Plan", prompt: "Based on my evaluations, what should I focus on to become a better overall player?", icon: <IconTrendingUp size={14} /> },
+  { label: "Growth Plan", prompt: "Based on my evaluations, create a weekly improvement plan. What should I focus on each day?", icon: <IconTrendingUp size={14} /> },
 ];
 
 export default function PlayerAIAssistantPage() {
@@ -157,13 +157,28 @@ export default function PlayerAIAssistantPage() {
                       </pre>
                     );
                   }
+                  // Parse markdown links and bold text
+                  const parts = block.split(/(\[.*?\]\(.*?\)|\*\*.*?\*\*)/g);
                   return (
                     <span key={bi}>
-                      {block.split("**").map((part, pi) =>
-                        pi % 2 === 1
-                          ? <strong key={pi} className={msg.role === "user" ? "text-emerald-100" : "text-slate-900"}>{part}</strong>
-                          : <span key={pi}>{part}</span>
-                      )}
+                      {parts.map((part, pi) => {
+                        // Check for markdown links [text](url)
+                        const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+                        if (linkMatch) {
+                          return (
+                            <a key={pi} href={linkMatch[2]} target="_blank" rel="noopener noreferrer"
+                              className="text-emerald-600 underline underline-offset-2 hover:text-emerald-800 font-semibold">
+                              {linkMatch[1]}
+                            </a>
+                          );
+                        }
+                        // Check for bold **text**
+                        const boldMatch = part.match(/^\*\*(.*?)\*\*$/);
+                        if (boldMatch) {
+                          return <strong key={pi} className={msg.role === "user" ? "text-emerald-100" : "text-slate-900"}>{boldMatch[1]}</strong>;
+                        }
+                        return <span key={pi}>{part}</span>;
+                      })}
                     </span>
                   );
                 })}

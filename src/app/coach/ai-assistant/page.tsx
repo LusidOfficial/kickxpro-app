@@ -7,10 +7,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 import {
   IconSend, IconActivity, IconTarget, IconStar,
-  IconClipboard, IconUsers, IconPlay
+  IconClipboard, IconUsers, IconPlay, IconSave
 } from "@/components/Icons";
 
 interface Message {
@@ -29,7 +31,9 @@ const QUICK_PROMPTS = [
 ];
 
 export default function CoachAIAssistantPage() {
+  const router = useRouter();
   const { user, profile } = useAuth();
+  const [savingSessionId, setSavingSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -162,13 +166,26 @@ export default function CoachAIAssistantPage() {
                       </pre>
                     );
                   }
+                  // Parse markdown links and bold text
+                  const parts = block.split(/(\[.*?\]\(.*?\)|\*\*.*?\*\*)/g);
                   return (
                     <span key={bi}>
-                      {block.split("**").map((part, pi) =>
-                        pi % 2 === 1
-                          ? <strong key={pi} className={msg.role === "user" ? "text-emerald-300" : "text-slate-900"}>{part}</strong>
-                          : <span key={pi}>{part}</span>
-                      )}
+                      {parts.map((part, pi) => {
+                        const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+                        if (linkMatch) {
+                          return (
+                            <a key={pi} href={linkMatch[2]} target="_blank" rel="noopener noreferrer"
+                              className="text-blue-600 underline underline-offset-2 hover:text-blue-800 font-semibold">
+                              {linkMatch[1]}
+                            </a>
+                          );
+                        }
+                        const boldMatch = part.match(/^\*\*(.*?)\*\*$/);
+                        if (boldMatch) {
+                          return <strong key={pi} className={msg.role === "user" ? "text-emerald-300" : "text-slate-900"}>{boldMatch[1]}</strong>;
+                        }
+                        return <span key={pi}>{part}</span>;
+                      })}
                     </span>
                   );
                 })}
@@ -191,6 +208,44 @@ export default function CoachAIAssistantPage() {
               <div className={`text-[9px] mt-2 ${msg.role === "user" ? "text-slate-400" : "text-slate-300"}`}>
                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
+
+              {/* Save to Sessions Button — only on assistant messages */}
+              {msg.role === "assistant" && msg.id !== "welcome" && (
+                <button
+                  disabled={savingSessionId === msg.id}
+                  onClick={async () => {
+                    if (!user) return;
+                    setSavingSessionId(msg.id);
+                    try {
+                      const { data, error } = await supabase.from("sessions").insert({
+                        coach_id: user.id,
+                        title: "AI Session Plan",
+                        session_type: "training",
+                        session_date: new Date().toISOString().split("T")[0],
+                        start_time: "09:00:00",
+                        duration_mins: 60,
+                        notes: msg.content,
+                      }).select("id").single();
+                      if (!error && data) {
+                        router.push("/coach/sessions?tab=history");
+                      } else {
+                        console.error("Save session error:", error);
+                        setSavingSessionId(null);
+                      }
+                    } catch (err) {
+                      console.error(err);
+                      setSavingSessionId(null);
+                    }
+                  }}
+                  className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-colors w-full"
+                >
+                  {savingSessionId === msg.id ? (
+                    <><span className="w-3 h-3 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" /> Saving...</>
+                  ) : (
+                    <><IconSave size={14} /> Save to Sessions & Edit</>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         ))}

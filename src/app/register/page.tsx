@@ -20,6 +20,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [academy, setAcademy] = useState("");
   const [extra, setExtra] = useState(""); // position for player, specialty for coach
+  const [referralCode, setReferralCode] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,6 +41,21 @@ export default function RegisterPage() {
       if (authError) throw authError;
 
       if (data.user) {
+        let referringCoachId = null;
+
+        // If a referral code was entered, try to find the matching coach
+        if (role === "player" && referralCode.trim()) {
+          const { data: coachData } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("referral_code", referralCode.trim().toUpperCase())
+            .single();
+          
+          if (coachData) {
+            referringCoachId = coachData.id;
+          }
+        }
+
         // Insert into profiles
         const { error: profileError } = await supabase.from("profiles").upsert({
           id: data.user.id,
@@ -47,6 +63,7 @@ export default function RegisterPage() {
           role: role,
           position: role === "player" ? extra : null,
           academy_id: academy || null,
+          referred_by_coach_id: referringCoachId,
         });
 
         if (profileError) throw profileError;
@@ -259,6 +276,20 @@ export default function RegisterPage() {
                   onChange={(e) => setExtra(e.target.value)}
                 />
               </div>
+
+              {role === "player" && (
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: "var(--color-text-dim)" }}>
+                    Coach Referral Code (Optional)
+                  </label>
+                  <input
+                    className="input uppercase"
+                    placeholder="e.g. COACH-SMITH-24"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value)}
+                  />
+                </div>
+              )}
 
               <button disabled={loading} type="submit" className="btn-primary w-full mt-6 py-3 text-sm flex items-center justify-center gap-2">
                 {loading ? "Creating Account..." : "Create Account"}

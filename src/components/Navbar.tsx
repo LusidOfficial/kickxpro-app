@@ -76,9 +76,7 @@ export default function Navbar({ role }: { role?: string } = {}) {
 
       {/* Right Side Tools */}
       <div className="flex items-center gap-2 md:gap-4 relative">
-        <Link href="/" className="text-xs font-bold text-slate-400 hover:text-slate-900 transition-colors hidden sm:block">
-          Switch Portal
-        </Link>
+        {/* Removed Switch Portal link as it caused confusion and strict role constraints prevent switching without logout */}
         
         {/* Profile Avatar Mock */}
         <div 

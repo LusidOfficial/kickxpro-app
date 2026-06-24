@@ -62,6 +62,8 @@ function EvaluateContent() {
   const [showToast, setShowToast] = useState(false);
   const [loading, setLoading] = useState(true);
   const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [viewMode, setViewMode] = useState<"individual" | "bulk">("individual");
+  const [savingBulk, setSavingBulk] = useState(false);
 
   const categoriesParam = searchParams?.get("categories");
   const drillCategories = useMemo(() => categoriesParam ? categoriesParam.split(",") : [], [categoriesParam]);
@@ -99,11 +101,36 @@ function EvaluateContent() {
         }));
         setPlayers(pList);
         setActivePlayerId(pList[0].id);
+
+        if (sessionId) {
+          const { data: evals } = await supabase
+            .from("evaluations")
+            .select("*")
+            .eq("session_id", sessionId);
+
+          if (evals && evals.length > 0) {
+            const loadedEvals: Record<string, EvalData> = {};
+            evals.forEach((e: any) => {
+              loadedEvals[e.player_id] = {
+                scores: e.scores || customDefaultEval.scores,
+                strengths: e.strengths || [],
+                focusAreas: e.focus_areas || [],
+                summary: e.summary || "",
+                badgeAwarded: e.badge_awarded || null,
+                goalTitle: "",
+                goalCategory: "technical",
+                suggestedGoals: [],
+                saved: true
+              };
+            });
+            setEvaluations(loadedEvals);
+          }
+        }
       }
       setLoading(false);
     }
     fetchPlayers();
-  }, [user]);
+  }, [user, sessionId, customDefaultEval]);
 
   // Initialize or get current player data
   const currentData = evaluations[activePlayerId] || customDefaultEval;
@@ -117,6 +144,16 @@ function EvaluateContent() {
 
   const handleScoreChange = (key: string, value: number) => {
     updateCurrentData({ scores: { ...currentData.scores, [key]: value } });
+  };
+
+  const handleBulkScoreChange = (playerId: string, key: string, value: number) => {
+    setEvaluations(prev => {
+      const current = prev[playerId] || customDefaultEval;
+      return {
+        ...prev,
+        [playerId]: { ...current, scores: { ...current.scores, [key]: value } }
+      };
+    });
   };
 
   const toggleStrength = (trait: string) => {
@@ -224,6 +261,10 @@ function EvaluateContent() {
              summary: currentData.summary
            });
          }
+         
+         updateCurrentData({ saved: true });
+         setShowToast(true);
+         setTimeout(() => setShowToast(false), 3000);
        }
 
        // Save goals
@@ -256,9 +297,6 @@ function EvaluateContent() {
     } catch (err) {
        console.error(err);
     }
-
-    updateCurrentData({ saved: true });
-    setShowToast(true);
     
     setTimeout(() => {
       setShowToast(false);
@@ -269,6 +307,56 @@ function EvaluateContent() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }, 2000);
+  };
+
+  const handleSaveBulk = async () => {
+    if (!user) return;
+    setSavingBulk(true);
+    try {
+      let evalSessionId = sessionId;
+
+       // If no session linked, create a quick evaluation session
+       if (!evalSessionId) {
+         const { data: quickSession } = await supabase.from("sessions").insert({
+           coach_id: user.id,
+           title: "Bulk Evaluation",
+           session_type: "training",
+           session_date: new Date().toISOString().split("T")[0],
+           start_time: new Date().toTimeString().split(" ")[0],
+           duration_mins: 0,
+           notes: "Auto-created from bulk evaluation"
+         }).select("id").single();
+         if (quickSession) evalSessionId = quickSession.id;
+       }
+
+       if (evalSessionId) {
+         for (const player of players) {
+           const evalData = evaluations[player.id] || customDefaultEval;
+           await supabase.from("evaluations").upsert({
+             session_id: evalSessionId,
+             player_id: player.id,
+             coach_id: user.id,
+             scores: evalData.scores,
+             strengths: evalData.strengths,
+             focus_areas: evalData.focusAreas,
+             badge_awarded: evalData.badgeAwarded,
+             summary: evalData.summary
+           }, { onConflict: "session_id,player_id" });
+         }
+         
+         // Mark all as saved
+         const updatedEvals = { ...evaluations };
+         Object.keys(updatedEvals).forEach(k => updatedEvals[k].saved = true);
+         setEvaluations(updatedEvals);
+         
+         setShowToast(true);
+         setTimeout(() => setShowToast(false), 3000);
+       }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingBulk(false);
+    }
   };
 
   const radarData = useMemo(() => {
@@ -291,29 +379,111 @@ function EvaluateContent() {
           <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
             <IconCheck size={14} color="white" />
           </div>
-          Evaluation Saved for {players.find(p => p.id === activePlayerId)?.name}!
+          Evaluation Saved!
         </div>
       )}
 
       {/* Header */}
       <div className="mb-6 md:mb-8 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2 text-slate-900" style={{ fontFamily: "var(--font-heading)", letterSpacing: "-0.02em" }}>Player Evaluation</h1>
+          <div className="flex items-center gap-4 mb-1 md:mb-2">
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900" style={{ fontFamily: "var(--font-heading)", letterSpacing: "-0.02em" }}>Player Evaluation</h1>
+            <div className="bg-slate-100 p-1 rounded-xl flex">
+              <button 
+                onClick={() => setViewMode("individual")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${viewMode === "individual" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                Individual
+              </button>
+              <button 
+                onClick={() => setViewMode("bulk")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${viewMode === "bulk" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                Bulk Grid
+              </button>
+            </div>
+          </div>
           <p className="text-slate-500 font-medium text-xs md:text-sm">
             {sessionId ? "Rate your players after the session." : "Rate your players. A session will be created automatically."}
           </p>
         </div>
         
         {/* Overall Score Badge */}
-        <div className="flex items-center gap-3 bg-white px-3 md:px-4 py-2 rounded-2xl shadow-sm border border-slate-100 self-start md:self-auto">
-           <span className="text-[10px] md:text-xs font-bold text-slate-400 tracking-wider">OVERALL</span>
-           <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-lg md:text-xl font-black text-white shadow-inner" style={{ background: "linear-gradient(135deg, #10B981, #059669)", fontFamily: "var(--font-heading)" }}>
-             {(overallScore / 10).toFixed(1)}
-           </div>
-        </div>
+        {viewMode === "individual" && (
+          <div className="flex items-center gap-3 bg-white px-3 md:px-4 py-2 rounded-2xl shadow-sm border border-slate-100 self-start md:self-auto">
+             <span className="text-[10px] md:text-xs font-bold text-slate-400 tracking-wider">OVERALL</span>
+             <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-lg md:text-xl font-black text-white shadow-inner" style={{ background: "linear-gradient(135deg, #10B981, #059669)", fontFamily: "var(--font-heading)" }}>
+               {(overallScore / 10).toFixed(1)}
+             </div>
+          </div>
+        )}
       </div>
 
-      {/* Step 1: Select Player */}
+      {viewMode === "bulk" ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Player</th>
+                  {SKILL_METRICS.map(m => (
+                    <th key={m.key} className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">{m.short}</th>
+                  ))}
+                  <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {players.map(player => {
+                  const ev = evaluations[player.id] || customDefaultEval;
+                  return (
+                    <tr key={player.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4">
+                        <div className="font-bold text-slate-900 text-sm">{player.name}</div>
+                        <div className="text-xs text-slate-500">{player.pos}</div>
+                      </td>
+                      {SKILL_METRICS.map(m => {
+                        const val = ev.scores[m.key] || 1;
+                        const displayVal = Math.max(1, Math.round(val / 10));
+                        return (
+                          <td key={m.key} className="p-4 text-center">
+                            <input
+                              type="number"
+                              min="1" max="10"
+                              value={displayVal}
+                              onChange={(e) => handleBulkScoreChange(player.id, m.key, parseInt(e.target.value) * 10)}
+                              className="w-16 text-center text-sm font-bold p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </td>
+                        )
+                      })}
+                      <td className="p-4 text-center">
+                        {ev.saved ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
+                            <IconCheck size={12} /> Saved
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold text-slate-400">Pending</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+            <button
+              onClick={handleSaveBulk}
+              disabled={savingBulk}
+              className="btn-primary py-2 px-6 text-sm font-bold"
+            >
+              {savingBulk ? "Saving..." : "Save All"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Step 1: Select Player */}
       <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">1. Select Player</h3>
       <div className="flex overflow-x-auto gap-2 md:gap-3 pb-4 mb-6 custom-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
         {players.map((player) => {
@@ -575,10 +745,11 @@ function EvaluateContent() {
         
         <button
           onClick={handleSave}
-          className="flex items-center justify-center gap-2 px-6 md:px-8 h-10 md:h-12 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white text-sm md:text-base font-bold tracking-wide transition-all active:scale-95 whitespace-nowrap"
-          style={{ fontFamily: "var(--font-heading)" }}
+          disabled={currentData.saved}
+          className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-white font-bold text-[10px] md:text-xs disabled:opacity-40 transition-all shadow-xl bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700"
+          title={currentData.saved ? "Already Saved" : "Save Evaluation"}
         >
-          <IconClipboard size={16} color="white" /> Save {players.find(p => p.id === activePlayerId)?.name.split(" ")[0]}
+          {currentData.saved ? <IconCheck size={18} /> : "SAVE"}
         </button>
         
         <button
@@ -592,6 +763,8 @@ function EvaluateContent() {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
         </button>
       </div>
+        </>
+      )}
 
     </div>
   );

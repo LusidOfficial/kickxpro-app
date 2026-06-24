@@ -19,33 +19,6 @@ import {
   IconActivity, IconShield, IconUsers, IconX, IconEdit, IconSave
 } from "@/components/Icons";
 
-/* ── Drill Library (seed data) ── */
-const SEED_DRILLS = [
-  { id: "d1", title: "La Masia Rondo 4v2", category: "Passing", duration_mins: 10, difficulty: "Beginner", description: "Quick one-touch passing in a tight circle." },
-  { id: "d2", title: "Ajax Positional Play", category: "Tactical", duration_mins: 20, difficulty: "Advanced", description: "Full-team shape drill." },
-  { id: "d3", title: "Bayer High Press", category: "Tactical", duration_mins: 15, difficulty: "Advanced", description: "Gegenpressing triggers." },
-  { id: "d4", title: "Real Madrid Counter", category: "Match Prep", duration_mins: 15, difficulty: "Intermediate", description: "Rapid transition from deep defense." },
-  { id: "d5", title: "Man City Box Control", category: "Passing", duration_mins: 15, difficulty: "Intermediate", description: "Overloading the midfield box." },
-  { id: "d6", title: "Bayern Wing Overloads", category: "Tactical", duration_mins: 20, difficulty: "Advanced", description: "Creating 2v1 situations on the flanks." },
-  { id: "d7", title: "Dortmund Wall Pass", category: "Shooting", duration_mins: 10, difficulty: "Beginner", description: "Quick 1-2 combination play." },
-  { id: "d8", title: "Bielsa Murderball", category: "Fitness", duration_mins: 12, difficulty: "Advanced", description: "Unrelenting 11v11 scrimmage." },
-  { id: "d9", title: "1v1 Keeper Isolation", category: "Goalkeeping", duration_mins: 10, difficulty: "Intermediate", description: "Attacker vs Goalkeeper simulation." },
-  { id: "d10", title: "Set-Piece Mastery", category: "Match Prep", duration_mins: 15, difficulty: "Beginner", description: "Practicing near-post flicks." },
-];
-
-const CATEGORY_ICONS: Record<string, JSX.Element> = {
-  Passing: <IconActivity size={16} />,
-  Shooting: <IconTarget size={16} />,
-  Fitness: <IconZap size={16} />,
-  Tactical: <IconShield size={16} />,
-  Goalkeeping: <IconSquare size={16} />,
-  "Match Prep": <IconPlay size={16} />,
-};
-
-const CATEGORY_COLORS: Record<string, string> = {
-  Passing: "#3B82F6", Shooting: "#EF4444", Fitness: "#F59E0B", Tactical: "#8B5CF6", Goalkeeping: "#06B6D4", "Match Prep": "#10B981",
-};
-
 type Drill = {
   id: string;
   title: string;
@@ -54,6 +27,21 @@ type Drill = {
   difficulty: string;
   description: string;
   coach_id?: string;
+  media_url?: string;
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  Passing: "#3B82F6", Shooting: "#EF4444", Fitness: "#F59E0B",
+  Tactical: "#8B5CF6", Goalkeeping: "#06B6D4", "Match Prep": "#10B981",
+};
+
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  Passing: <IconUsers size={12} />,
+  Shooting: <IconLightning size={12} />,
+  Fitness: <IconLightning size={12} />,
+  Tactical: <IconBrain size={12} />,
+  Goalkeeping: <IconShield size={12} />,
+  "Match Prep": <IconWhistle size={12} />,
 };
 
 export default function SessionsHubPage() {
@@ -69,6 +57,8 @@ export default function SessionsHubPage() {
   const [duration, setDuration] = useState(60);
   const [notes, setNotes] = useState("");
   const [attendance, setAttendance] = useState<Record<string, string>>({});
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringPattern, setRecurringPattern] = useState("weekly");
   
   /* ── Roster State ── */
   const [myPlayers, setMyPlayers] = useState<{id: string, name: string, pos: string}[]>([]);
@@ -78,7 +68,7 @@ export default function SessionsHubPage() {
   const [timeLeft, setTimeLeft] = useState(duration * 60);
 
   /* ── Drill Planning ── */
-  const [drillLibrary, setDrillLibrary] = useState<Drill[]>(SEED_DRILLS);
+  const [drillLibrary, setDrillLibrary] = useState<Drill[]>([]);
   const [selectedDrills, setSelectedDrills] = useState<Drill[]>([]);
   const [drillFilter, setDrillFilter] = useState("All");
 
@@ -105,6 +95,7 @@ export default function SessionsHubPage() {
       duration_mins: 15,
       difficulty: "Beginner",
       description: "",
+      media_url: "",
       coach_id: user?.id
     });
     setIsEditingMode(true);
@@ -133,7 +124,8 @@ export default function SessionsHubPage() {
            duration_mins: drillToSave.duration_mins,
            difficulty: drillToSave.difficulty,
            description: drillToSave.description,
-           coach_id: user.id
+           coach_id: user.id,
+           media_url: drillToSave.media_url || null
          };
 
          if (isInsert) {
@@ -252,6 +244,8 @@ export default function SessionsHubPage() {
         start_time: startTime + ":00", // DB needs HH:MM:SS format 
         duration_mins: duration,
         notes: notes,
+        is_recurring: isRecurring,
+        recurring_pattern: isRecurring ? recurringPattern : null,
         attendance: attendance
       }).select("id").single();
       
@@ -365,6 +359,30 @@ export default function SessionsHubPage() {
                   <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mb-2"><IconTimer size={14} /> Start Time</label>
                   <input type="time" className="input" value={startTime} onChange={e => setStartTime(e.target.value)} />
                 </div>
+              </div>
+
+              {/* Recurring Session Toggle */}
+              <div className="card-static border-slate-100 bg-slate-50 p-4">
+                <div className="flex items-center gap-3">
+                  <input 
+                    type="checkbox" 
+                    id="isRecurring" 
+                    className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                    checked={isRecurring}
+                    onChange={(e) => setIsRecurring(e.target.checked)}
+                  />
+                  <label htmlFor="isRecurring" className="text-xs font-bold text-slate-700 cursor-pointer">Make this a recurring session</label>
+                </div>
+                {isRecurring && (
+                  <div className="mt-3 ml-7 flex items-center gap-3 animate-fade-up">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Repeats:</label>
+                    <select className="input py-1.5 text-xs" value={recurringPattern} onChange={e => setRecurringPattern(e.target.value)}>
+                      <option value="weekly">Weekly</option>
+                      <option value="biweekly">Bi-weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -755,12 +773,21 @@ export default function SessionsHubPage() {
                         value={editingDrill.difficulty} 
                         onChange={e => setEditingDrill({...editingDrill, difficulty: e.target.value})}
                       >
-                        <option value="Beginner">Beginner</option>
-                        <option value="Intermediate">Intermediate</option>
-                        <option value="Advanced">Advanced</option>
+                        {["Beginner", "Intermediate", "Advanced", "Elite"].map(d => <option key={d} value={d}>{d}</option>)}
                       </select>
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Media URL (YouTube/Image)</label>
+                    <input 
+                      type="url" 
+                      placeholder="https://..."
+                      className="input w-full text-xs" 
+                      value={editingDrill.media_url || ""} 
+                      onChange={e => setEditingDrill({...editingDrill, media_url: e.target.value})} 
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Duration (Mins)</label>
                     <input 

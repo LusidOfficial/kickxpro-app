@@ -57,7 +57,7 @@ export default function MyStudentsPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, position, age, overall_score, tier")
+      .select("*")
       .eq("role", "player")
       .eq("coach_id", user.id)
       .order("full_name");
@@ -336,9 +336,9 @@ export default function MyStudentsPage() {
             <button onClick={() => setLastCredentials(null)} className="text-emerald-400 hover:text-emerald-600 text-lg font-bold">✕</button>
           </div>
           <div className="bg-white rounded-xl border border-emerald-200 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Login Email</div>
-              <div className="font-bold text-slate-900 text-sm font-mono">{lastCredentials.email}</div>
+            <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200">
+              <div className="text-xs text-slate-500 font-bold uppercase tracking-widest">Email</div>
+              <div className="font-bold text-slate-900 text-sm font-mono break-all text-right max-w-[70%]">{lastCredentials.email}</div>
             </div>
             <div className="border-t border-slate-100" />
             <div className="flex items-center justify-between">

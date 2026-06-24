@@ -17,26 +17,21 @@ import {
   IconPlus, IconX, IconEdit, IconSave
 } from "@/components/Icons";
 
-/* ── Drill Library ── */
-const SEED_DRILLS = [
-  { id: "d1", title: "La Masia Rondo 4v2", category: "Passing", duration_mins: 10, difficulty: "Beginner", description: "Quick one-touch passing in a tight circle." },
-  { id: "d2", title: "Ajax Positional Play", category: "Tactical", duration_mins: 20, difficulty: "Advanced", description: "Full-team shape drill." },
-  { id: "d3", title: "Bayer High Press", category: "Tactical", duration_mins: 15, difficulty: "Advanced", description: "Gegenpressing triggers." },
-  { id: "d4", title: "Real Madrid Counter", category: "Match Prep", duration_mins: 15, difficulty: "Intermediate", description: "Rapid transition from deep defense." },
-  { id: "d5", title: "Man City Box Control", category: "Passing", duration_mins: 15, difficulty: "Intermediate", description: "Overloading the midfield box." },
-  { id: "d6", title: "Bayern Wing Overloads", category: "Tactical", duration_mins: 20, difficulty: "Advanced", description: "Creating 2v1 situations on the flanks." },
-  { id: "d7", title: "Dortmund Wall Pass", category: "Shooting", duration_mins: 10, difficulty: "Beginner", description: "Quick 1-2 combination play." },
-  { id: "d8", title: "Bielsa Murderball", category: "Fitness", duration_mins: 12, difficulty: "Advanced", description: "Unrelenting 11v11 scrimmage." },
-  { id: "d9", title: "1v1 Keeper Isolation", category: "Goalkeeping", duration_mins: 10, difficulty: "Intermediate", description: "Attacker vs Goalkeeper simulation." },
-  { id: "d10", title: "Set-Piece Mastery", category: "Match Prep", duration_mins: 15, difficulty: "Beginner", description: "Practicing near-post flicks." },
-];
+type Drill = {
+  id: string;
+  title: string;
+  category: string;
+  duration_mins: number;
+  difficulty: string;
+  description: string;
+  coach_id?: string;
+  media_url?: string;
+};
 
 const CATEGORY_COLORS: Record<string, string> = {
   Passing: "#3B82F6", Shooting: "#EF4444", Fitness: "#F59E0B",
   Tactical: "#8B5CF6", Goalkeeping: "#06B6D4", "Match Prep": "#10B981",
 };
-
-type Drill = typeof SEED_DRILLS[number] & { coach_id?: string };
 type AttendanceStatus = "Present" | "Late" | "Absent" | null;
 // 3 steps: "setup" | "attendance" | "running"
 type FlowStep = "idle" | "setup" | "attendance" | "running";
@@ -64,7 +59,7 @@ function AttendanceContent() {
   const [step, setStep] = useState<FlowStep>("idle");
 
   /* ── Drill Modal & Editing ── */
-  const [drillLibrary, setDrillLibrary] = useState<Drill[]>(SEED_DRILLS);
+  const [drillLibrary, setDrillLibrary] = useState<Drill[]>([]);
   const [showDrillModal, setShowDrillModal] = useState(false);
   const [editingDrill, setEditingDrill] = useState<Drill | null>(null);
   const [isEditingMode, setIsEditingMode] = useState(false);
@@ -158,9 +153,10 @@ function AttendanceContent() {
         duration_mins: d.duration_mins || 15,
         difficulty: d.difficulty || "Beginner",
         description: d.description || "",
-        coach_id: d.coach_id
+        coach_id: d.coach_id,
+        media_url: d.media_url
       }));
-      setDrillLibrary([...SEED_DRILLS, ...formatted.filter(d => !SEED_DRILLS.some(s => s.title === d.title))]);
+      setDrillLibrary(formatted);
     }
 
     setLoading(false);
