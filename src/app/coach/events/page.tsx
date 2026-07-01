@@ -6,6 +6,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -37,16 +38,6 @@ export default function CoachEventsPage() {
   const { user } = useAuth();
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-
-  // Form state
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [eventType, setEventType] = useState("announcement");
-  const [eventDate, setEventDate] = useState("");
-  const [location, setLocation] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -65,38 +56,6 @@ export default function CoachEventsPage() {
 
     if (data) setEvents(data as EventItem[]);
     setLoading(false);
-  }
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!user || !title.trim()) return;
-    setSaving(true);
-
-    if (!eventDate) {
-      setSaving(false);
-      return;
-    }
-    const { error } = await supabase.from("events").insert({
-      title: title.trim(),
-      description: description.trim() || null,
-      event_type: eventType,
-      event_date: eventDate,
-      location: location.trim() || null,
-      coach_id: user.id,
-    });
-
-    if (!error) {
-      setTitle("");
-      setDescription("");
-      setEventType("tournament");
-      setEventDate("");
-      setLocation("");
-      setShowForm(false);
-      setToast("Event created successfully! 🎉");
-      setTimeout(() => setToast(""), 3000);
-      loadEvents();
-    }
-    setSaving(false);
   }
 
   async function handleDelete(id: string) {
@@ -128,100 +87,13 @@ export default function CoachEventsPage() {
           </h1>
           <p className="text-slate-500 font-medium text-sm">Post updates, tournaments, and announcements for your players.</p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
-            showForm
-              ? "bg-slate-200 text-slate-600"
-              : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-md"
-          }`}
+        <Link
+          href="/coach/events/create"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all bg-emerald-600 text-white hover:bg-emerald-700 shadow-md no-underline"
         >
-          <IconPlus size={16} /> {showForm ? "Cancel" : "New Event"}
-        </button>
+          <IconPlus size={16} /> New Event
+        </Link>
       </div>
-
-      {/* Create Form */}
-      {showForm && (
-        <div className="card-static p-6 animate-fade-up border-l-4 border-emerald-500">
-          <h3 className="text-sm font-bold text-slate-900 mb-4">Create New Event</h3>
-          <form onSubmit={handleCreate} className="space-y-4">
-            {/* Type Selector */}
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Type</label>
-              <div className="flex flex-wrap gap-2">
-                {EVENT_TYPES.map(type => (
-                  <button
-                    key={type.key}
-                    type="button"
-                    onClick={() => setEventType(type.key)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
-                      eventType === type.key
-                        ? "text-white shadow-md"
-                        : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-                    }`}
-                    style={{ background: eventType === type.key ? type.color : undefined, borderColor: eventType === type.key ? type.color : undefined }}
-                  >
-                    {type.emoji} {type.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Title *</label>
-              <input
-                type="text"
-                className="input"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder="e.g. Inter-Academy U16 Cup"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Description</label>
-              <textarea
-                className="input"
-                rows={3}
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="Add details, rules, requirements..."
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Date</label>
-                <input
-                  type="date"
-                  className="input"
-                  value={eventDate}
-                  onChange={e => setEventDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Location</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={location}
-                  onChange={e => setLocation(e.target.value)}
-                  placeholder="e.g. Central Stadium, Gate 3"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={saving}
-              className="btn-primary py-3 px-6 flex items-center gap-2"
-            >
-              {saving ? "Posting..." : "Post Event"} <IconCheck size={16} />
-            </button>
-          </form>
-        </div>
-      )}
 
       {/* Events List */}
       {events.length === 0 ? (
@@ -273,12 +145,6 @@ export default function CoachEventsPage() {
         </div>
       )}
 
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 bg-emerald-600 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 z-50 animate-slide-in font-bold text-sm">
-          <IconCheck size={16} /> {toast}
-        </div>
-      )}
     </div>
   );
 }
