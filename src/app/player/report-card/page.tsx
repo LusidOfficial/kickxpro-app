@@ -26,6 +26,7 @@ export default function ReportCardPage() {
   const [attendance, setAttendance] = useState({ present: 0, late: 0, absent: 0, total: 0 });
   const [goals, setGoals] = useState({ achieved: 0, total: 0 });
   const [loading, setLoading] = useState(true);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -109,6 +110,34 @@ export default function ReportCardPage() {
     window.print();
   }
 
+  async function handleSendEmail() {
+    setSendingEmail(true);
+    try {
+      const res = await fetch("/api/send-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerEmail: user?.email || "parent@example.com",
+          playerName: profile?.full_name || "Player",
+          coachName: coachName,
+          summary: evaluations[0]?.summary || "No recent summary.",
+          scores: evaluations[0]?.scores || {},
+          reportUrl: window.location.href,
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert("Report card emailed successfully!");
+      } else {
+        alert("Failed to send email: " + data.error);
+      }
+    } catch (e) {
+      alert("An error occurred while sending the email.");
+    } finally {
+      setSendingEmail(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto py-20 text-center">
@@ -128,12 +157,21 @@ export default function ReportCardPage() {
           </h1>
           <p className="text-sm text-slate-500 font-medium">Auto-generated from your latest evaluations</p>
         </div>
-        <button
-          onClick={handlePrint}
-          className="btn-primary flex items-center gap-2 text-sm print:hidden"
-        >
-          <IconClipboard size={16} /> Download / Print
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleSendEmail}
+            disabled={sendingEmail}
+            className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 flex items-center gap-2 text-sm print:hidden transition-all disabled:opacity-50 font-bold px-4 py-2 rounded-xl"
+          >
+            <span className="text-base">✉️</span> {sendingEmail ? "Sending..." : "Send to Parent"}
+          </button>
+          <button
+            onClick={handlePrint}
+            className="btn-primary flex items-center gap-2 text-sm print:hidden"
+          >
+            <IconClipboard size={16} /> Download / Print
+          </button>
+        </div>
       </div>
 
       {/* Report Card (printable area) */}

@@ -64,6 +64,9 @@ function EvaluateContent() {
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const [viewMode, setViewMode] = useState<"individual" | "bulk">("individual");
   const [savingBulk, setSavingBulk] = useState(false);
+  const [coachMetrics, setCoachMetrics] = useState<string[]>(["Pace", "Shooting", "Passing", "Dribbling", "Defending", "Physical"]);
+
+  const dynamicMetrics = useMemo(() => coachMetrics.map(m => ({ key: m.toLowerCase(), label: m })), [coachMetrics]);
 
   const categoriesParam = searchParams?.get("categories");
   const drillCategories = useMemo(() => categoriesParam ? categoriesParam.split(",") : [], [categoriesParam]);
@@ -87,6 +90,18 @@ function EvaluateContent() {
   useEffect(() => {
     async function fetchPlayers() {
       if (!user) return;
+
+      // Fetch coach's custom metrics
+      const { data: coachData } = await supabase
+        .from("profiles")
+        .select("evaluation_metrics")
+        .eq("id", user.id)
+        .single();
+      
+      if (coachData && coachData.evaluation_metrics) {
+        setCoachMetrics(coachData.evaluation_metrics);
+      }
+
       const { data } = await supabase
         .from("profiles")
         .select("id, full_name, position")
@@ -441,7 +456,7 @@ function EvaluateContent() {
                         <div className="font-bold text-slate-900 text-sm">{player.name}</div>
                         <div className="text-xs text-slate-500">{player.pos}</div>
                       </td>
-                      {SKILL_METRICS.map(m => {
+                      {dynamicMetrics.map(m => {
                         const val = ev.scores[m.key] || 1;
                         const displayVal = Math.max(1, Math.round(val / 10));
                         return (
@@ -517,7 +532,7 @@ function EvaluateContent() {
            <div>
              <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">2. Adjust Core Attributes (1-10)</h3>
              <div className="card-static p-4 md:p-6 space-y-6 md:space-y-7">
-              {SKILL_METRICS.map((metric) => {
+              {dynamicMetrics.map(metric => {
                 const rawVal = currentData.scores[metric.key] || 1;
                 const displayVal = Math.max(1, Math.round(rawVal / 10)); // 1 to 10
                 const widthPercent = (displayVal / 10) * 100;

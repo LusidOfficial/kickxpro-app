@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 import {
   IconSend, IconActivity, IconTarget, IconStar, IconTrendingUp
 } from "@/components/Icons";
@@ -16,6 +17,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   sources?: { title: string; type: string }[];
+  attachmentUrl?: string;
   timestamp: Date;
 }
 
@@ -38,6 +40,7 @@ export default function PlayerAIAssistantPage() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [attachment, setAttachment] = useState<File | null>(null);
   const [apiStatus, setApiStatus] = useState<"online" | "offline" | "checking">("checking");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -55,12 +58,28 @@ export default function PlayerAIAssistantPage() {
   }, [messages]);
 
   async function sendMessage(content: string) {
-    if (!content.trim() || loading || !user) return;
+    if ((!content.trim() && !attachment) || loading || !user) return;
+
+    let attachmentBase64: string | undefined;
+    let attachmentType: string | undefined;
+    let attachmentPreviewUrl: string | undefined;
+
+    if (attachment) {
+      attachmentPreviewUrl = URL.createObjectURL(attachment);
+      attachmentType = attachment.type;
+      
+      const buffer = await attachment.arrayBuffer();
+      const base64 = btoa(
+        new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+      );
+      attachmentBase64 = base64;
+    }
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
       role: "user",
-      content: content.trim(),
+      content: content.trim() || "Analyzed attachment",
+      attachmentUrl: attachmentPreviewUrl,
       timestamp: new Date(),
     };
 
@@ -68,6 +87,7 @@ export default function PlayerAIAssistantPage() {
 
     setMessages(prev => [...prev, userMsg]);
     setInput("");
+    setAttachment(null);
     setLoading(true);
 
     try {
@@ -80,7 +100,17 @@ export default function PlayerAIAssistantPage() {
           "Content-Type": "application/json",
           ...(token && { Authorization: `Bearer ${token}` })
         },
-        body: JSON.stringify({ message: content.trim(), history, playerId: user.id }),
+        body: JSON.stringify({ 
+          message: content.trim() || "Analyze this media", 
+          history, 
+          playerId: user.id,
+          attachment: attachmentBase64 ? {
+            inlineData: {
+              data: attachmentBase64,
+              mimeType: attachmentType
+            }
+          } : undefined
+        }),
       });
 
       if (res.ok) {
@@ -194,6 +224,14 @@ export default function PlayerAIAssistantPage() {
                       </span>
                     ))}
                   </div>
+
+              {msg.attachmentUrl && (
+                <div className="mt-3 rounded-lg overflow-hidden border border-slate-200">
+                  {msg.attachmentUrl.startsWith("blob:") ? (
+                     <video src={msg.attachmentUrl} controls className="max-w-full max-h-48 object-cover" />
+                  ) : null}
+                </div>
+              )}
                 </div>
               )}
 
@@ -238,22 +276,42 @@ export default function PlayerAIAssistantPage() {
       )}
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="flex items-center gap-3">
-        <input
-          type="text"
-          className="input flex-1"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder="Ask about training, nutrition, skills..."
-          disabled={loading}
-        />
-        <button
-          type="submit"
-          disabled={loading || !input.trim()}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-xl font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-        >
-          <IconSend size={16} />
-        </button>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+        {attachment && (
+          <div className="flex items-center justify-between bg-slate-100 p-2 rounded-lg">
+            <span className="text-xs text-slate-600 font-medium truncate">{attachment.name}</span>
+            <button type="button" onClick={() => setAttachment(null)} className="text-red-500 font-bold text-xs px-2 hover:bg-red-100 rounded-full">×</button>
+          </div>
+        )}
+        <div className="flex items-center gap-3">
+          <label className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-3 rounded-xl font-bold cursor-pointer transition-colors flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0V3z"/>
+            </svg>
+            <input 
+              type="file" 
+              accept="video/mp4,video/webm,image/jpeg,image/png"
+              className="hidden" 
+              onChange={e => setAttachment(e.target.files ? e.target.files[0] : null)}
+              disabled={loading}
+            />
+          </label>
+          <input
+            type="text"
+            className="input flex-1"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="Ask about training, nutrition, skills..."
+            disabled={loading}
+          />
+          <button
+            type="submit"
+            disabled={loading || (!input.trim() && !attachment)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-xl font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          >
+            <IconSend size={16} />
+          </button>
+        </div>
       </form>
     </div>
   );

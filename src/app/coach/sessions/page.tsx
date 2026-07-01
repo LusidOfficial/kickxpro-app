@@ -37,11 +37,11 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   Passing: <IconUsers size={12} />,
-  Shooting: <IconLightning size={12} />,
-  Fitness: <IconLightning size={12} />,
-  Tactical: <IconBrain size={12} />,
+  Shooting: <IconZap size={12} />,
+  Fitness: <IconZap size={12} />,
+  Tactical: <IconActivity size={12} />,
   Goalkeeping: <IconShield size={12} />,
-  "Match Prep": <IconWhistle size={12} />,
+  "Match Prep": <IconTarget size={12} />,
 };
 
 export default function SessionsHubPage() {

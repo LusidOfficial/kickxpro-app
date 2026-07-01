@@ -13,7 +13,7 @@ export default function AcademyDashboard() {
   });
 
   return (
-    <div className="max-w-5xl animate-fade-in">
+    <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900 mb-2" style={{ fontFamily: "var(--font-heading)" }}>Academy Dashboard</h1>
         <p className="text-slate-500">Welcome back. Here is your academy's overview.</p>

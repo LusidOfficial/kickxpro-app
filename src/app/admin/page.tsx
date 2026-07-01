@@ -8,7 +8,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import StatCard from "@/components/StatCard";
-import { IconUsers, IconUser, IconClipboard, IconTrophy, IconAward, IconActivity, IconBarChart } from "@/components/Icons";
+import { IconUsers, IconUser, IconClipboard, IconTrophy, IconAward, IconActivity, IconBarChart, IconCheck, IconX } from "@/components/Icons";
+import { supabase } from "@/lib/supabase";
 
 const DEMO_STATS = { total_users: 24, coaches: 6, players: 16, admins: 2, total_notes: 48, total_academies: 3, total_sessions: 87 };
 const DEMO_RECENT_USERS = [
@@ -25,12 +26,44 @@ export default function AdminDashboard() {
   const [isLive, setIsLive] = useState(false);
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // Verification State
+  const [pendingDocs, setPendingDocs] = useState<any[]>([]);
 
   useEffect(() => {
     const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     fetch(`${apiBase}/admin/stats`).then((r) => r.json()).then((d) => { if (d.total_users !== undefined) { setStats(d); setIsLive(true); } }).catch(() => {});
     fetch(`${apiBase}/admin/users`).then((r) => r.json()).then((d) => { if (d.users?.length > 0) setUsers(d.users); }).catch(() => {});
-  }, []);
+    
+    if (isAuthenticated) {
+      loadPendingDocuments();
+    }
+  }, [isAuthenticated]);
+
+  const loadPendingDocuments = async () => {
+    const { data } = await supabase
+      .from("coach_documents")
+      .select("*, profiles(full_name)")
+      .eq("is_verified", false)
+      .order("created_at", { ascending: false });
+    if (data) setPendingDocs(data);
+  };
+
+  const handleVerify = async (docId: string, coachId: string) => {
+    // Mark document as verified
+    await supabase.from("coach_documents").update({ is_verified: true }).eq("id", docId);
+    
+    // Also mark the coach profile as verified (simplified for MVP: if any doc verified, coach is verified)
+    await supabase.from("profiles").update({ is_verified: true }).eq("id", coachId);
+    
+    // Refresh list
+    await loadPendingDocuments();
+  };
+
+  const handleReject = async (docId: string) => {
+    await supabase.from("coach_documents").delete().eq("id", docId);
+    await loadPendingDocuments();
+  };
 
   function roleLabel(role: string) {
     const config: Record<string, { label: string; color: string; bg: string }> = {
@@ -70,7 +103,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold mb-1" style={{ fontFamily: "var(--font-heading)", letterSpacing: "-0.02em" }}>Admin Dashboard</h1>
@@ -97,6 +130,46 @@ export default function AdminDashboard() {
         <StatCard value={stats.total_academies} label="Academies" icon={<IconTrophy size={18} color="#A78BFA" />} accentColor="#A78BFA" delay={0.35} />
         <StatCard value={stats.admins} label="Admins" icon={<IconAward size={18} color="#F59E0B" />} accentColor="#F59E0B" delay={0.4} />
       </div>
+
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold" style={{ fontFamily: "var(--font-heading)" }}>Pending Verifications</h2>
+        </div>
+        <div className="card-static overflow-hidden">
+          {pendingDocs.length === 0 ? (
+             <div className="p-8 text-center text-sm text-slate-500 font-bold">
+               No pending documents to verify.
+             </div>
+          ) : (
+             <div className="divide-y divide-slate-100">
+               {pendingDocs.map((doc, i) => (
+                 <div key={doc.id} className="flex items-center justify-between p-5 bg-white hover:bg-slate-50 transition-colors animate-fade-up" style={{ animationDelay: `${0.1 + i * 0.05}s`, animationFillMode: "forwards", opacity: 0 }}>
+                   <div className="flex items-center gap-4">
+                     <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                       <IconClipboard size={20} />
+                     </div>
+                     <div>
+                       <p className="font-bold text-slate-900">{doc.profiles?.full_name || "Unknown Coach"}</p>
+                       <p className="text-xs text-slate-500">{doc.document_type} • {doc.file_name}</p>
+                     </div>
+                   </div>
+                   <div className="flex items-center gap-3">
+                     <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 text-sm font-bold mr-2">
+                       View Document
+                     </a>
+                     <button onClick={() => handleVerify(doc.id, doc.coach_id)} className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 flex items-center justify-center transition-colors">
+                       <IconCheck size={16} />
+                     </button>
+                     <button onClick={() => handleReject(doc.id)} className="w-8 h-8 rounded-full bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center transition-colors">
+                       <IconX size={16} />
+                     </button>
+                   </div>
+                 </div>
+               ))}
+             </div>
+          )}
+        </div>
+      </section>
 
       <section>
         <div className="flex items-center justify-between mb-4">

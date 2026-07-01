@@ -30,7 +30,32 @@ export async function POST(request: Request) {
       ? history.map((msg: any) => `\n${msg.role === 'user' ? 'Coach' : 'Assistant'}: ${msg.content}`).join('') 
       : '';
 
-    const systemPrompt = `You are KickXPro Coach Assistant, an elite AI mentor for youth football coaches.
+    // Contextual RAG: Fetch recent player evaluations for this coach
+    let evaluationContext = "";
+    if (coachId) {
+      const { data: evals } = await supabaseAdmin
+        .from("evaluations")
+        .select(`
+          overall_score,
+          summary,
+          strengths,
+          focus_areas,
+          player:profiles!evaluations_player_id_fkey(full_name)
+        `)
+        .eq("coach_id", coachId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (evals && evals.length > 0) {
+        evaluationContext = `\n\nHere is some context about the coach's players from recent evaluations:\n` + 
+          evals.map(e => {
+            const playerName = (e.player as any)?.full_name || 'Unknown Player';
+            return `- ${playerName}: Score ${e.overall_score}/100. Strengths: ${(e.strengths || []).join(", ")}. Focus Areas: ${(e.focus_areas || []).join(", ")}. Notes: ${e.summary}`;
+          }).join('\n');
+      }
+    }
+
+const systemPrompt = `You are KickXPro Coach Assistant, an elite AI mentor for youth football coaches.
 Your goal is to help coaches plan sessions, generate drills, draft parent communications, and provide tactical advice.
 Always be professional, concise, and structured. Use bullet points where appropriate.
 If a coach asks for a drill, provide: Name, Setup, Instructions, and Coaching Points.
@@ -38,7 +63,7 @@ Do not wrap your output in JSON, just output raw markdown text.
 
 You have access to tools:
 - search_youtube_drill: Use this when the coach asks for a video of a drill or technique.
-- save_drill_to_library: Use this ONLY if the coach explicitly asks you to "save this drill", "add this to my library", etc.
+- save_drill_to_library: Use this ONLY if the coach explicitly asks you to "save this drill", "add this to my library", etc.${evaluationContext}
 
 Conversation History:${formattedHistory}
 
@@ -81,7 +106,7 @@ Assistant:`;
     let response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: systemPrompt,
-        tools: tools,
+        config: { tools: tools as any },
     });
 
     let answer = response.text || "";
@@ -125,22 +150,11 @@ Assistant:`;
       response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: [
-          systemPrompt,
-          {
-            role: "model",
-            parts: [{ functionCall: call }]
-          },
-          {
-            role: "user",
-            parts: [{
-              functionResponse: {
-                name: call.name,
-                response: functionResponseData
-              }
-            }]
-          }
-        ],
-        tools: tools,
+          { role: 'user', parts: [{ text: systemPrompt }] },
+          { role: 'model', parts: [{ functionCall: call }] },
+          { role: 'user', parts: [{ functionResponse: { name: call.name, response: functionResponseData } }] }
+        ] as any,
+        config: { tools: tools as any }
       });
 
       answer = response.text || answer;

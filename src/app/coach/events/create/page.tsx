@@ -3,10 +3,52 @@
 import { useState } from "react";
 import { IconTrophy, IconClipboard, IconActivity } from "@/components/Icons";
 import Link from "next/link";
-
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
 export default function CreateEvent() {
+  const { user } = useAuth();
+  const router = useRouter();
+  
   const [eventType, setEventType] = useState("tournament");
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+
+  // Form State
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState("");
+  const [location, setLocation] = useState("");
+  const [entryFee, setEntryFee] = useState("0");
+  const [maxTeams, setMaxTeams] = useState("16");
+  const [prizePool, setPrizePool] = useState("");
+
+  const handlePublish = async () => {
+    if (!user || !title || !date) {
+      alert("Please fill in Title and Date");
+      return;
+    }
+    setLoading(true);
+
+    const { data, error } = await supabase.from("events").insert({
+      title,
+      event_date: date,
+      location,
+      entry_fee: parseFloat(entryFee) || 0,
+      max_teams: parseInt(maxTeams) || 16,
+      prize_pool: prizePool,
+      coach_id: user.id,
+      status: "registration_open"
+    }).select("id").single();
+
+    setLoading(false);
+
+    if (error) {
+      console.error(error);
+      alert("Failed to create event");
+    } else if (data) {
+      router.push(`/events/${data.id}`);
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto animate-fade-up">
@@ -48,17 +90,34 @@ export default function CreateEvent() {
 
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Event Title</label>
-              <input type="text" placeholder="e.g., Summer KickX Cup 2026" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all" />
+              <input 
+                type="text" 
+                placeholder="e.g., Summer KickX Cup 2026" 
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Date</label>
-                <input type="date" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all" />
+                <input 
+                  type="date" 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all" 
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Location</label>
-                <input type="text" placeholder="e.g., Main Turf Pitch" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all" />
+                <input 
+                  type="text" 
+                  placeholder="e.g., Main Turf Pitch" 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all" 
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
               </div>
             </div>
 
@@ -75,18 +134,35 @@ export default function CreateEvent() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Entry Fee (₹)</label>
-                <input type="number" placeholder="0.00" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all" />
+                <input 
+                  type="number" 
+                  placeholder="0.00" 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all" 
+                  value={entryFee}
+                  onChange={(e) => setEntryFee(e.target.value)}
+                />
                 <p className="text-xs text-slate-500 mt-1">Leave 0 for free entry. Payments processed via Razorpay.</p>
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Max Teams / Players</label>
-                <input type="number" placeholder="16" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all" />
+                <input 
+                  type="number" 
+                  placeholder="16" 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all" 
+                  value={maxTeams}
+                  onChange={(e) => setMaxTeams(e.target.value)}
+                />
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Prize Pool / Rewards</label>
-              <textarea placeholder="e.g., 1st Prize: ₹50,000 + Trophy. 2nd Prize: ₹25,000" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all h-24 resize-none"></textarea>
+              <textarea 
+                placeholder="e.g., 1st Prize: ₹50,000 + Trophy. 2nd Prize: ₹25,000" 
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all h-24 resize-none"
+                value={prizePool}
+                onChange={(e) => setPrizePool(e.target.value)}
+              ></textarea>
             </div>
 
             <div className="pt-4 flex justify-between">
@@ -106,8 +182,12 @@ export default function CreateEvent() {
             
             <div className="flex justify-center gap-4">
               <button onClick={() => setStep(2)} className="text-slate-500 font-bold hover:text-slate-700 px-6">Back</button>
-              <button className="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-all">
-                Publish Event
+              <button 
+                onClick={handlePublish}
+                disabled={loading}
+                className="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-all disabled:opacity-50"
+              >
+                {loading ? "Publishing..." : "Publish Event"}
               </button>
             </div>
           </div>

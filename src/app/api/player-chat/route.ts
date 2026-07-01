@@ -107,9 +107,21 @@ Conversation History:${formattedHistory}
 Player: ${message}
 Mentor:`;
 
+    const { attachment } = body;
+
+    let contents: any[] = [systemPrompt];
+    if (attachment && attachment.inlineData) {
+      contents.push({
+        inlineData: {
+          data: attachment.inlineData.data,
+          mimeType: attachment.inlineData.mimeType
+        }
+      });
+    }
+
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
-        contents: systemPrompt,
+        contents,
     });
 
     const answer = response.text || "I'm sorry, I couldn't think of a response. Keep practicing!";

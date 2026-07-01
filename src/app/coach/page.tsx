@@ -209,7 +209,7 @@ export default function CoachDashboard() {
   }
 
   return (
-    <div className="max-w-5xl space-y-10 pb-20 opacity-0 animate-fade-up" style={{ animationFillMode: "forwards" }}>
+    <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 space-y-10 py-8 pb-20 opacity-0 animate-fade-up" style={{ animationFillMode: "forwards" }}>
 
       {/* Welcome Banner */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">

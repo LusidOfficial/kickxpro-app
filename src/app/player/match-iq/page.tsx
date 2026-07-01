@@ -8,6 +8,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import Link from "next/link";
 import {
   IconCheck, IconChevronRight, IconTrendingUp, IconShield,
   IconActivity, IconTarget, IconPlay
@@ -152,13 +153,19 @@ export default function PlayerMatchIQPage() {
 
   return (
     <div className="max-w-6xl mx-auto pb-24 px-4 xl:px-0 opacity-0 animate-fade-up">
-      <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold mb-2 text-slate-900 leading-tight" style={{ fontFamily: "var(--font-heading)", letterSpacing: "-0.02em" }}>
-          Match IQ
-        </h1>
-        <p className="text-slate-500 font-medium text-xs md:text-sm">
-          Review tactical lessons from your coach. {unreviewedCount > 0 && <span className="text-amber-600 font-bold">{unreviewedCount} new cards!</span>}
-        </p>
+      <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2 text-slate-900 leading-tight" style={{ fontFamily: "var(--font-heading)", letterSpacing: "-0.02em" }}>
+            Match IQ
+          </h1>
+          <p className="text-slate-500 font-medium text-xs md:text-sm">
+            Review tactical lessons from your coach. {unreviewedCount > 0 && <span className="text-amber-600 font-bold">{unreviewedCount} new cards!</span>}
+          </p>
+        </div>
+        <Link href="/player/match-iq/simulator" className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-md text-sm whitespace-nowrap">
+          <IconActivity size={18} />
+          Launch AI Simulator
+        </Link>
       </div>
 
       {/* Main View Tabs */}

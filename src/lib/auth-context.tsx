@@ -17,6 +17,8 @@ interface Profile {
   overall_score: number | null;
   avatar_seed: string | null;
   child_id: string | null;
+  referral_code?: string | null;
+  is_verified?: boolean | null;
 }
 
 interface AuthContextType {
