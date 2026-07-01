@@ -59,8 +59,8 @@ export default function CreateEvent() {
       </div>
 
       <div className="flex gap-4 mb-8">
-        {[1, 2, 3].map((s) => (
-          <div key={s} className={`h-2 flex-1 rounded-full ${s <= step ? 'bg-indigo-600' : 'bg-slate-200'}`}></div>
+        {[1, 2, 3, 4].map((s) => (
+          <div key={s} className={`h-2 flex-1 rounded-full transition-colors duration-300 ${s <= step ? 'bg-indigo-600' : 'bg-slate-200'}`}></div>
         ))}
       </div>
 
@@ -99,6 +99,16 @@ export default function CreateEvent() {
               />
             </div>
 
+            <div className="pt-4 flex justify-end">
+              <button onClick={() => setStep(2)} className="btn-primary bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-all">Next: Logistics</button>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-6 animate-fade-in">
+            <h2 className="text-xl font-bold text-slate-900 mb-4">Logistics</h2>
+            
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Date</label>
@@ -121,37 +131,42 @@ export default function CreateEvent() {
               </div>
             </div>
 
-            <div className="pt-4 flex justify-end">
-              <button onClick={() => setStep(2)} className="btn-primary bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-all">Next Step</button>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Max Teams / Players</label>
+              <input 
+                type="number" 
+                placeholder="16" 
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all" 
+                value={maxTeams}
+                onChange={(e) => setMaxTeams(e.target.value)}
+              />
+            </div>
+
+            <div className="pt-4 flex justify-between">
+              <button onClick={() => setStep(1)} className="text-slate-500 font-bold hover:text-slate-700">Back</button>
+              <button onClick={() => setStep(3)} className="btn-primary bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-all">Next: Monetization</button>
             </div>
           </div>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <div className="space-y-6 animate-fade-in">
-            <h2 className="text-xl font-bold text-slate-900 mb-4">Registration & Prizes</h2>
+            <h2 className="text-xl font-bold text-slate-900 mb-4">Monetization & Prizes</h2>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Entry Fee (₹)</label>
-                <input 
-                  type="number" 
-                  placeholder="0.00" 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all" 
-                  value={entryFee}
-                  onChange={(e) => setEntryFee(e.target.value)}
-                />
+                <div className="relative">
+                  <span className="absolute left-4 top-3 font-bold text-slate-400">₹</span>
+                  <input 
+                    type="number" 
+                    placeholder="0.00" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all text-lg font-bold" 
+                    value={entryFee}
+                    onChange={(e) => setEntryFee(e.target.value)}
+                  />
+                </div>
                 <p className="text-xs text-slate-500 mt-1">Leave 0 for free entry. Payments processed via Razorpay.</p>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Max Teams / Players</label>
-                <input 
-                  type="number" 
-                  placeholder="16" 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-500 transition-all" 
-                  value={maxTeams}
-                  onChange={(e) => setMaxTeams(e.target.value)}
-                />
               </div>
             </div>
 
@@ -166,13 +181,13 @@ export default function CreateEvent() {
             </div>
 
             <div className="pt-4 flex justify-between">
-              <button onClick={() => setStep(1)} className="text-slate-500 font-bold hover:text-slate-700">Back</button>
-              <button onClick={() => setStep(3)} className="btn-primary bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-all">Next Step</button>
+              <button onClick={() => setStep(2)} className="text-slate-500 font-bold hover:text-slate-700">Back</button>
+              <button onClick={() => setStep(4)} className="btn-primary bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-all">Review & Launch</button>
             </div>
           </div>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <div className="space-y-6 animate-fade-in text-center py-8">
             <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
               <IconTrophy size={40} />
@@ -181,7 +196,7 @@ export default function CreateEvent() {
             <p className="text-slate-500 max-w-md mx-auto mb-8">Your event page will be created immediately. You will receive a public link to share with teams for registration and payment.</p>
             
             <div className="flex justify-center gap-4">
-              <button onClick={() => setStep(2)} className="text-slate-500 font-bold hover:text-slate-700 px-6">Back</button>
+              <button onClick={() => setStep(3)} className="text-slate-500 font-bold hover:text-slate-700 px-6">Back</button>
               <button 
                 onClick={handlePublish}
                 disabled={loading}

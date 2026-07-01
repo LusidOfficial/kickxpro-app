@@ -64,6 +64,7 @@ function EvaluateContent() {
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const [viewMode, setViewMode] = useState<"individual" | "bulk">("individual");
   const [savingBulk, setSavingBulk] = useState(false);
+  const [showDetailedView, setShowDetailedView] = useState(false);
   const [coachMetrics, setCoachMetrics] = useState<string[]>(["Pace", "Shooting", "Passing", "Dribbling", "Defending", "Physical"]);
 
   const dynamicMetrics = useMemo(() => coachMetrics.map(m => ({ key: m.toLowerCase(), label: m })), [coachMetrics]);
@@ -507,7 +508,7 @@ function EvaluateContent() {
             <button
               key={player.id}
               onClick={() => setActivePlayerId(player.id)}
-              className="flex-shrink-0 flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-2.5 rounded-full border transition-all"
+              className="flex-shrink-0 flex items-center gap-3 px-5 py-3 md:px-6 md:py-4 rounded-2xl border-2 transition-all font-bold"
               style={{
                 background: activePlayerId === player.id ? "var(--color-brand)" : "#FFFFFF",
                 borderColor: activePlayerId === player.id ? "var(--color-brand)" : (isSaved ? "#10B981" : "var(--color-border)"),
@@ -576,8 +577,21 @@ function EvaluateContent() {
              </div>
            </div>
            
-           <div className="card-static p-4 md:p-6 flex justify-center items-center bg-slate-50 border-dashed border-2 overflow-hidden">
-              <RadarChart data={radarData} size={240} />
+           <div className="card-static p-4 md:p-6 bg-slate-50 border-dashed border-2 overflow-hidden">
+             <div className="flex justify-between items-center mb-4">
+               <h4 className="text-xs font-bold text-slate-500 uppercase">Radar Analysis</h4>
+               <button 
+                 onClick={() => setShowDetailedView(!showDetailedView)}
+                 className="text-xs font-bold bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-slate-700 shadow-sm"
+               >
+                 {showDetailedView ? "Hide Chart" : "View Chart"}
+               </button>
+             </div>
+             {showDetailedView && (
+               <div className="flex justify-center items-center mt-4">
+                 <RadarChart data={radarData} size={240} />
+               </div>
+             )}
            </div>
         </div>
 
@@ -623,7 +637,7 @@ function EvaluateContent() {
                     <button
                       key={trait}
                       onClick={() => toggleStrength(trait)}
-                      className={`trait-chip text-[10px] md:text-xs px-3 py-1.5 md:px-4 md:py-2 ${currentData.strengths.includes(trait) ? "strength" : ""}`}
+                      className={`text-[12px] md:text-sm font-bold px-4 py-2.5 md:px-5 md:py-3 rounded-xl border transition-all shadow-sm ${currentData.strengths.includes(trait) ? "bg-emerald-500 text-white border-emerald-600 shadow-emerald-500/30" : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"}`}
                     >
                       {trait}
                     </button>
@@ -640,7 +654,7 @@ function EvaluateContent() {
                     <button
                       key={trait}
                       onClick={() => toggleFocus(trait)}
-                      className={`trait-chip text-[10px] md:text-xs px-3 py-1.5 md:px-4 md:py-2 ${currentData.focusAreas.includes(trait) ? "focus-area" : ""}`}
+                      className={`text-[12px] md:text-sm font-bold px-4 py-2.5 md:px-5 md:py-3 rounded-xl border transition-all shadow-sm ${currentData.focusAreas.includes(trait) ? "bg-amber-500 text-white border-amber-600 shadow-amber-500/30" : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"}`}
                     >
                       {trait}
                     </button>
