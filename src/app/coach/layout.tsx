@@ -60,13 +60,13 @@ export default function CoachLayout({
 
   return (
     <ProtectedRoute role="coach">
-      <div className="min-h-screen flex flex-col">
+      <div className="h-screen flex flex-col overflow-hidden">
         <Navbar role="coach" />
-        <div className="flex flex-1">
+        <div className="flex flex-1 overflow-hidden">
           {/* Sidebar */}
           <aside
-            className="w-56 flex-shrink-0 border-r hidden md:flex flex-col bg-white"
-            style={{ borderColor: "var(--color-border)", minHeight: "calc(100vh - 64px)" }}
+            className="w-56 flex-shrink-0 border-r hidden md:flex flex-col bg-white overflow-y-auto"
+            style={{ borderColor: "var(--color-border)" }}
           >
             {/* View Toggle Button */}
             <div className="px-3 pt-4 pb-1">
