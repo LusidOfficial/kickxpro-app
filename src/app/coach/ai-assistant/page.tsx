@@ -14,6 +14,7 @@ import {
   IconSend, IconActivity, IconTarget, IconStar,
   IconClipboard, IconUsers, IconPlay, IconSave
 } from "@/components/Icons";
+import ProPaywall from "@/components/ProPaywall";
 
 interface Message {
   id: string;
@@ -144,8 +145,14 @@ export default function CoachAIAssistantPage() {
         </div>
       </div>
 
-      {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto space-y-4 pr-2 mb-4 opacity-0 animate-fade-up" style={{ animationDelay: "0.1s", animationFillMode: "forwards" }}>
+      {profile?.subscription_tier !== "pro" ? (
+        <div className="flex-1 flex items-center justify-center animate-fade-up" style={{ animationDelay: "0.1s", animationFillMode: "forwards" }}>
+          <ProPaywall featureName="Unlock AI Assistant Coach" />
+        </div>
+      ) : (
+        <>
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto space-y-4 pr-2 mb-4 opacity-0 animate-fade-up" style={{ animationDelay: "0.1s", animationFillMode: "forwards" }}>
         {messages.map(msg => (
           <div
             key={msg.id}
@@ -301,6 +308,8 @@ export default function CoachAIAssistantPage() {
           <IconSend size={16} />
         </button>
       </form>
+        </>
+      )}
     </div>
   );
 }

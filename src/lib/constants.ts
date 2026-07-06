@@ -90,6 +90,7 @@ export const NAV_ITEMS = {
     { href: "/coach/events", label: "Events", icon: "calendar" },
     { href: "/coach/ai-assistant", label: "AI Assistant", icon: "zap" },
     { href: "/coach/wallet", label: "Wallet", icon: "wallet" },
+    { href: "/marketplace", label: "Marketplace", icon: "shopping-bag" },
   ],
   coachClassic: [
     { href: "/coach", label: "Dashboard", icon: "grid" },
@@ -101,6 +102,7 @@ export const NAV_ITEMS = {
     { href: "/coach/events", label: "Events", icon: "calendar" },
     { href: "/coach/ai-assistant", label: "AI Assistant", icon: "zap" },
     { href: "/coach/wallet", label: "Wallet", icon: "wallet" },
+    { href: "/marketplace", label: "Marketplace", icon: "shopping-bag" },
   ],
   player: [
     { href: "/player", label: "Dashboard", icon: "grid" },
@@ -111,6 +113,7 @@ export const NAV_ITEMS = {
     { href: "/player/messages", label: "Messages", icon: "message-square" },
     { href: "/player/events", label: "Events", icon: "calendar" },
     { href: "/player/ai-assistant", label: "AI Assistant", icon: "zap" },
+    { href: "/marketplace", label: "Marketplace", icon: "shopping-bag" },
   ],
   playerClassic: [
     { href: "/player", label: "Dashboard", icon: "grid" },

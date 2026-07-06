@@ -58,7 +58,16 @@ export default function Navbar({ role }: { role?: string } = {}) {
           </button>
         )}
 
-        <Link href="/" className="flex items-center gap-2" style={{ textDecoration: 'none' }}>
+        <Link 
+          href={
+            profile?.role === 'coach' ? "/coach/dashboard" : 
+            profile?.role === 'player' ? "/player/dashboard" : 
+            profile?.role === 'admin' ? "/admin" : 
+            "/"
+          } 
+          className="flex items-center gap-2" 
+          style={{ textDecoration: 'none' }}
+        >
           <Image
             src="/logo-text.png"
             alt="KickXPro Logo"
@@ -79,29 +88,38 @@ export default function Navbar({ role }: { role?: string } = {}) {
         {/* Removed Switch Portal link as it caused confusion and strict role constraints prevent switching without logout */}
         
         {/* Profile Avatar Mock */}
-        <div 
-           className="relative flex items-center gap-3 cursor-pointer p-1.5 rounded-full hover:bg-slate-50 transition-colors"
-           onClick={() => setShowProfileMenu(!showProfileMenu)}
-        >
-          <div className="hidden sm:block text-right">
-             <div className="text-sm font-bold text-slate-900 leading-none">{displayName}</div>
-             <div className="text-[10px] font-semibold text-slate-400 mt-1">{roleDisplay}</div>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-xs font-bold text-white shadow-sm ring-2 ring-white">
-            {initials}
-          </div>
-        </div>
+        {user ? (
+          <>
+            <div 
+               className="relative flex items-center gap-3 cursor-pointer p-1.5 rounded-full hover:bg-slate-50 transition-colors"
+               onClick={() => setShowProfileMenu(!showProfileMenu)}
+            >
+              <div className="hidden sm:block text-right">
+                 <div className="text-sm font-bold text-slate-900 leading-none">{displayName}</div>
+                 <div className="text-[10px] font-semibold text-slate-400 mt-1">{roleDisplay}</div>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-xs md:text-sm font-bold text-white shadow-sm ring-2 ring-white">
+                {profile?.avatar_seed || initials}
+              </div>
+            </div>
 
-        {/* Profile Dropdown Mock */}
-        {showProfileMenu && (
-          <div className="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-2 animate-fade-up !duration-150 z-50">
-            <Link href="/account-settings" onClick={() => setShowProfileMenu(false)} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 no-underline">
-              <IconSettings size={14} /> Account Settings
-            </Link>
-            <div className="h-px bg-slate-100 my-1"></div>
-            <button onClick={handleSignOut} className="w-full text-left px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center gap-2">
-              <IconLogout size={14} /> Log Out
-            </button>
+            {/* Profile Dropdown Mock */}
+            {showProfileMenu && (
+              <div className="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-2 animate-fade-up !duration-150 z-50">
+                <Link href="/account-settings" onClick={() => setShowProfileMenu(false)} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 no-underline">
+                  <IconSettings size={14} /> Account Settings
+                </Link>
+                <div className="h-px bg-slate-100 my-1"></div>
+                <button onClick={handleSignOut} className="w-full text-left px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center gap-2">
+                  <IconLogout size={14} /> Log Out
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex items-center gap-2 md:gap-3">
+             <Link href="/login" className="text-sm font-bold text-slate-600 hover:text-slate-900 px-3 py-2 hidden md:block">Log In</Link>
+             <Link href="/register" className="text-sm font-bold bg-slate-900 text-white hover:bg-slate-800 px-4 py-2 rounded-full transition-colors whitespace-nowrap">Sign Up</Link>
           </div>
         )}
       </div>

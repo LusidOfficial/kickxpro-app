@@ -473,11 +473,16 @@ export default function PlayerDashboard() {
                   <span className={`text-sm font-bold transition-colors block leading-tight ${isDone ? 'text-emerald-700 line-through decoration-emerald-300/50' : 'text-slate-800 group-hover:text-emerald-700'}`}>
                     {g.title}
                   </span>
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="flex items-center flex-wrap gap-2 mt-2">
                     <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${isDone ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : catColor}`}>
                       {g.category || 'General'}
                     </span>
-                    {!isDone && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Log Practice →</span>}
+                    {g.due_date && (
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${isDone ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-slate-500 bg-slate-50 border-slate-200'}`}>
+                        Due: {new Date(g.due_date).toLocaleDateString()}
+                      </span>
+                    )}
+                    {!isDone && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 hover:bg-emerald-100 transition-colors">Log Practice →</span>}
                     {isDone && <span className="text-[9px] font-black text-emerald-600">Quest Completed! +50 XP</span>}
                   </div>
                 </div>
@@ -498,6 +503,13 @@ export default function PlayerDashboard() {
             
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900 mb-6 relative z-10 uppercase tracking-widest">
               <IconTarget size={18} color="#059669" /> Current Skill Radar
+              <div className="group relative ml-1">
+                <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-[10px] font-bold cursor-help hover:bg-slate-200 transition-colors">?</div>
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 p-2.5 bg-slate-900 text-white text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl normal-case tracking-normal">
+                  Your overall score is a rolling average of all your evaluation scores across core metrics. Keep practicing to raise your stats!
+                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 rotate-45"></div>
+                </div>
+              </div>
             </div>
             
             <div className="relative z-10 flex justify-center -mt-4">

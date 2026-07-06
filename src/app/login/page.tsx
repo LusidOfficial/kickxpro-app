@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Navbar from "@/components/Navbar";
 import { IconChevronRight } from "@/components/Icons";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -108,6 +109,18 @@ export default function LoginPage() {
               {!loading && <IconChevronRight size={16} />}
             </button>
           </form>
+
+          <div className="mt-6 flex flex-col items-center gap-3 text-sm font-medium">
+            <div className="text-slate-500">
+              Don't have an account?{" "}
+              <Link href="/register" className="text-emerald-600 hover:text-emerald-700 font-bold underline">
+                Sign Up
+              </Link>
+            </div>
+            <Link href="/" className="text-slate-400 hover:text-slate-600 flex items-center gap-1">
+              ← Back to Home
+            </Link>
+          </div>
           
           <div className="mt-6 pt-6 border-t border-slate-200/50 text-center">
              <p className="text-xs text-slate-500 mb-2 font-semibold">Test / Demo Accounts:</p>

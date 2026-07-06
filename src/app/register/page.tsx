@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Navbar from "@/components/Navbar";
 import { IconUser, IconClipboard, IconChevronRight, IconCheck } from "@/components/Icons";
+import Link from "next/link";
 
 type Role = "player" | "coach";
 
@@ -298,6 +299,18 @@ export default function RegisterPage() {
 
             </form>
           )}
+
+          <div className="mt-6 flex flex-col items-center gap-3 text-sm font-medium">
+            <div className="text-slate-500">
+              Already have an account?{" "}
+              <Link href="/login" className="text-emerald-600 hover:text-emerald-700 font-bold underline">
+                Log In
+              </Link>
+            </div>
+            <Link href="/" className="text-slate-400 hover:text-slate-600 flex items-center gap-1">
+              ← Back to Home
+            </Link>
+          </div>
         </div>
       </main>
     </div>

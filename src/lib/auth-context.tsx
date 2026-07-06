@@ -19,6 +19,9 @@ interface Profile {
   child_id: string | null;
   referral_code?: string | null;
   is_verified?: boolean | null;
+  subscription_tier?: string | null;
+  subscription_status?: string | null;
+  subscription_end_date?: string | null;
 }
 
 interface AuthContextType {

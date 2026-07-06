@@ -9,8 +9,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import {
-  IconUsers, IconPlus, IconCheck, IconUser, IconChevronRight, IconAward
+  IconUsers, IconPlus, IconCheck, IconUser, IconChevronRight, IconAward, IconClipboard
 } from "@/components/Icons";
+import ProPaywall from "@/components/ProPaywall";
 import { RANK_TIERS, PlayerTier } from "@/lib/constants";
 
 const DEFAULT_STUDENT_PASSWORD = "kickxpro123";
@@ -35,6 +36,7 @@ export default function MyStudentsPage() {
   const { user } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [subscriptionTier, setSubscriptionTier] = useState("free");
 
   // Add student form
   const [showAddForm, setShowAddForm] = useState(false);
@@ -42,6 +44,8 @@ export default function MyStudentsPage() {
   const [newEmail, setNewEmail] = useState("");
   const [newPosition, setNewPosition] = useState("MID");
   const [newAge, setNewAge] = useState("");
+  const [newLevel, setNewLevel] = useState<PlayerTier>("Beginner");
+  const [newMedicalInjuries, setNewMedicalInjuries] = useState("");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
@@ -55,6 +59,17 @@ export default function MyStudentsPage() {
   async function loadStudents() {
     if (!user) return;
     setLoading(true);
+
+    const { data: coachData } = await supabase
+      .from("profiles")
+      .select("subscription_tier")
+      .eq("id", user.id)
+      .single();
+      
+    if (coachData && coachData.subscription_tier) {
+      setSubscriptionTier(coachData.subscription_tier);
+    }
+
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -125,6 +140,8 @@ export default function MyStudentsPage() {
           role: "player",
           position: newPosition,
           age: newAge ? parseInt(newAge) : null,
+          tier: newLevel,
+          medical_injuries: newMedicalInjuries,
           overall_score: 0,
           coach_id: user.id,
           academy_id: null,
@@ -140,7 +157,7 @@ export default function MyStudentsPage() {
           position: newPosition,
           age: newAge ? parseInt(newAge) : null,
           overall_score: 0,
-          tier: "Beginner",
+          tier: newLevel,
         }]);
 
         // Step 4: Show credentials so coach can share with student
@@ -155,6 +172,8 @@ export default function MyStudentsPage() {
         setNewEmail("");
         setNewPosition("MID");
         setNewAge("");
+        setNewLevel("Beginner");
+        setNewMedicalInjuries("");
         setShowAddForm(false);
         showToast(`${newName.trim()} added to your squad! 🎉`);
       }
@@ -241,8 +260,13 @@ export default function MyStudentsPage() {
         </button>
       </div>
 
-      {/* Add Student Form */}
+      {/* Add Student Form or Paywall */}
       {showAddForm && (
+        subscriptionTier !== "pro" && students.length >= 10 ? (
+          <div className="animate-fade-up">
+            <ProPaywall featureName="Add more than 10 players" />
+          </div>
+        ) : (
         <div className="card-static p-6 mb-8 animate-fade-up border-2 border-emerald-100">
           <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-1 flex items-center gap-2" style={{ fontFamily: "var(--font-heading)" }}>
             <IconUser size={16} color="#10B981" /> Add a New Student
@@ -312,6 +336,32 @@ export default function MyStudentsPage() {
                 />
               </div>
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Level</label>
+                <select
+                  className="input"
+                  value={newLevel}
+                  onChange={e => setNewLevel(e.target.value as PlayerTier)}
+                >
+                  {Object.keys(RANK_TIERS).map(tier => (
+                    <option key={tier} value={tier}>{tier}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Past Medical Injuries (Optional)</label>
+                <textarea
+                  className="input min-h-[42px] py-2"
+                  placeholder="e.g. Sprained ankle in 2023"
+                  value={newMedicalInjuries}
+                  onChange={e => setNewMedicalInjuries(e.target.value)}
+                  rows={1}
+                />
+              </div>
+            </div>
             <div className="flex gap-3">
               <button type="submit" disabled={saving || !newName.trim() || !newEmail.trim()} className="btn-primary disabled:opacity-50 flex items-center gap-2">
                 {saving ? "Adding..." : "Add to My Squad"}
@@ -321,6 +371,7 @@ export default function MyStudentsPage() {
             </div>
           </form>
         </div>
+        )
       )}
 
       {/* ── Credentials Card (shown after adding a student) ── */}
@@ -335,7 +386,17 @@ export default function MyStudentsPage() {
             </div>
             <button onClick={() => setLastCredentials(null)} className="text-emerald-400 hover:text-emerald-600 text-lg font-bold">✕</button>
           </div>
-          <div className="bg-white rounded-xl border border-emerald-200 p-4 space-y-3">
+          <div className="bg-white rounded-xl border border-emerald-200 p-4 space-y-3 relative">
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(`Login URL: ${window.location.origin}/login\nEmail: ${lastCredentials.email}\nPassword: ${lastCredentials.password}`);
+                showToast("Credentials copied to clipboard!");
+              }}
+              className="absolute top-2 right-2 p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+              title="Copy credentials"
+            >
+              <IconClipboard size={16} />
+            </button>
             <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200">
               <div className="text-xs text-slate-500 font-bold uppercase tracking-widest">Email</div>
               <div className="font-bold text-slate-900 text-sm font-mono break-all text-right max-w-[70%]">{lastCredentials.email}</div>

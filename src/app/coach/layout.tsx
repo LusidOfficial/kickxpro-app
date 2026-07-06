@@ -13,7 +13,8 @@ import FeedbackWidget from "@/components/FeedbackWidget";
 import { NAV_ITEMS } from "@/lib/constants";
 import {
   IconGrid, IconUsers, IconClipboard, IconTimer, IconTarget,
-  IconWallet, IconShield, IconActivity, IconMessageSquare, IconTrendingUp
+  IconWallet, IconShield, IconActivity, IconMessageSquare, IconTrendingUp,
+  IconShoppingBag
 } from "@/components/Icons";
 
 function getIcon(name: string, color: string) {
@@ -29,6 +30,7 @@ function getIcon(name: string, color: string) {
     case "activity": return <IconActivity {...props} />;
     case "message-square": return <IconMessageSquare {...props} />;
     case "trending-up": return <IconTrendingUp {...props} />;
+    case "shopping-bag": return <IconShoppingBag {...props} />;
     default: return <IconGrid {...props} />;
   }
 }

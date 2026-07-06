@@ -4,7 +4,7 @@ import crypto from 'crypto';
 
 export async function POST(req: Request) {
   try {
-    const { amount, currency, eventId } = await req.json();
+    const { amount, currency, eventId, notes } = await req.json();
 
     // The amount comes in as standard currency (e.g. 500 for ₹500), Razorpay expects paise.
     const amountInPaise = amount * 100;
@@ -18,6 +18,7 @@ export async function POST(req: Request) {
       amount: amountInPaise,
       currency: currency || "INR",
       receipt: `receipt_order_${eventId}_${Date.now()}`,
+      notes: notes || {},
     };
 
     const order = await instance.orders.create(options);

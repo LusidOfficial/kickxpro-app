@@ -13,6 +13,7 @@ import { IconClipboard, IconCheck, IconAward } from "@/components/Icons";
 import { supabase } from "@/lib/supabase";
 import { IconTarget } from "@/components/Icons";
 import { useAuth } from "@/lib/auth-context";
+import ProPaywall from "@/components/ProPaywall";
 
 interface Player {
   id: string;
@@ -52,7 +53,7 @@ const INCENTIVE_BADGES = [
 ];
 
 function EvaluateContent() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const searchParams = useSearchParams();
   const sessionId = searchParams?.get("session_id");
 
@@ -65,6 +66,7 @@ function EvaluateContent() {
   const [viewMode, setViewMode] = useState<"individual" | "bulk">("individual");
   const [savingBulk, setSavingBulk] = useState(false);
   const [showDetailedView, setShowDetailedView] = useState(false);
+  const [showPdfPaywall, setShowPdfPaywall] = useState(false);
   const [coachMetrics, setCoachMetrics] = useState<string[]>(["Pace", "Shooting", "Passing", "Dribbling", "Defending", "Physical"]);
 
   const dynamicMetrics = useMemo(() => coachMetrics.map(m => ({ key: m.toLowerCase(), label: m })), [coachMetrics]);
@@ -376,8 +378,8 @@ function EvaluateContent() {
   };
 
   const radarData = useMemo(() => {
-    return SKILL_METRICS.map(m => ({ label: m.short, value: ((currentData.scores[m.key] || 1) / 20) }));
-  }, [currentData.scores]);
+    return dynamicMetrics.map(m => ({ label: m.label, value: ((currentData.scores[m.key] || 1) / 20) }));
+  }, [currentData.scores, dynamicMetrics]);
 
   const overallScore = Math.round(
     Object.values(currentData.scores).reduce((a, b) => a + b, 0) / Math.max(1, Object.keys(currentData.scores).length)
@@ -759,8 +761,8 @@ function EvaluateContent() {
         </div>
       </div>
 
-      {/* Floating Save & Navigate (Stepper) */}
-      <div className="fixed bottom-6 md:bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-slate-900 p-1.5 md:p-2 rounded-full shadow-2xl transition-transform">
+      {/* Static Save & Navigate (Stepper) */}
+      <div className="mt-8 mx-auto w-max flex items-center gap-2 bg-slate-900 p-1.5 md:p-2 rounded-full shadow-2xl print:hidden relative z-40">
         <button
           onClick={() => {
             const idx = players.findIndex(p => p.id === activePlayerId);
@@ -775,10 +777,10 @@ function EvaluateContent() {
         <button
           onClick={handleSave}
           disabled={currentData.saved}
-          className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-white font-bold text-[10px] md:text-xs disabled:opacity-40 transition-all shadow-xl bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700"
+          className="px-6 py-2 md:py-3 h-10 md:h-12 rounded-full flex items-center justify-center text-white font-bold text-xs md:text-sm disabled:opacity-40 transition-all shadow-xl bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 whitespace-nowrap"
           title={currentData.saved ? "Already Saved" : "Save Evaluation"}
         >
-          {currentData.saved ? <IconCheck size={18} /> : "SAVE"}
+          {currentData.saved ? <div className="flex items-center gap-1.5"><IconCheck size={18} /> <span>Saved</span></div> : "Save Evaluation"}
         </button>
         
         <button
@@ -791,7 +793,38 @@ function EvaluateContent() {
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
         </button>
+
+        <div className="w-[1px] h-8 bg-slate-700 mx-1"></div>
+
+        <button
+          onClick={() => {
+            if (profile?.subscription_tier === 'pro') {
+              window.print();
+            } else {
+              setShowPdfPaywall(true);
+            }
+          }}
+          className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-white font-bold text-[10px] md:text-xs shadow-xl bg-blue-600 hover:bg-blue-500 transition-all"
+          title="Download PDF Report Card"
+        >
+          PDF
+        </button>
       </div>
+
+      {/* Paywall Modal */}
+      {showPdfPaywall && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm print:hidden">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-2 relative animate-scale-in">
+            <button 
+              onClick={() => setShowPdfPaywall(false)}
+              className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200"
+            >
+              ✕
+            </button>
+            <ProPaywall featureName="Export PDF Report Cards" />
+          </div>
+        </div>
+      )}
         </>
       )}
 

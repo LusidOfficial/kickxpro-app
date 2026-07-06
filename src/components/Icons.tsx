@@ -296,3 +296,29 @@ export const IconUpload = makeIcon(
     <line x1="12" y1="4" x2="12" y2="16" />
   </>
 );
+
+export const IconShoppingBag = makeIcon(
+  <>
+    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <path d="M16 10a4 4 0 0 1-8 0" />
+  </>
+);
+
+export const IconCoins = makeIcon(
+  <>
+    <circle cx="8" cy="15" r="6" />
+    <path d="M18.09 10.37A6 6 0 1 0 10.34 18" />
+    <path d="M7 15h2" />
+  </>
+);
+
+export const IconGift = makeIcon(
+  <>
+    <polyline points="20 12 20 22 4 22 4 12" />
+    <rect x="2" y="7" width="20" height="5" />
+    <line x1="12" y1="22" x2="12" y2="7" />
+    <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+    <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+  </>
+);
