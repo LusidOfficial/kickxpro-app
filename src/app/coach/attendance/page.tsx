@@ -145,6 +145,18 @@ function AttendanceContent() {
 
     // Fetch custom drills
     const { data: customDrills } = await supabase.from("drills").select("*");
+    
+    const DEFAULT_DRILLS: Drill[] = [
+      { id: "def_1", title: "Rondo 4v1", category: "Passing", duration_mins: 15, difficulty: "Beginner", description: "Basic passing and pressing under pressure." },
+      { id: "def_2", title: "Dynamic Stretching", category: "Fitness", duration_mins: 10, difficulty: "Beginner", description: "Warmup targeting hamstrings, quads, and calves." },
+      { id: "def_3", title: "Shooting Gallery", category: "Shooting", duration_mins: 20, difficulty: "Intermediate", description: "Quick-fire shooting from the edge of the box." },
+      { id: "def_4", title: "High Press Tactical", category: "Tactical", duration_mins: 25, difficulty: "Advanced", description: "Team shape and triggers for a high press." },
+      { id: "def_5", title: "Attacking Overloads", category: "Match Prep", duration_mins: 30, difficulty: "Elite", description: "3v2 and 4v3 scenarios in the final third." },
+      { id: "def_6", title: "Goalkeeper Distribution", category: "Goalkeeping", duration_mins: 15, difficulty: "Intermediate", description: "Playing out from the back under pressure." }
+    ];
+
+    let combinedDrills = [...DEFAULT_DRILLS];
+
     if (customDrills && customDrills.length > 0) {
       const formatted = customDrills.map(d => ({
         id: d.id,
@@ -156,8 +168,12 @@ function AttendanceContent() {
         coach_id: d.coach_id,
         media_url: d.media_url
       }));
-      setDrillLibrary(formatted);
+      // Prevent duplicates if DB already seeded the defaults
+      const formattedFiltered = formatted.filter(d => !DEFAULT_DRILLS.some(def => def.title === d.title));
+      combinedDrills = [...combinedDrills, ...formattedFiltered];
     }
+    
+    setDrillLibrary(combinedDrills);
 
     setLoading(false);
   }
